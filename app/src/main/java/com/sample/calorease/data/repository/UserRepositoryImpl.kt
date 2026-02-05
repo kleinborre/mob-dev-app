@@ -70,6 +70,29 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
     
+    override suspend fun getAllUsers(): Result<List<UserEntity>> {
+        return try {
+            val users = dao.getAllUsers()
+            Result.success(users)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    
+    override fun getAllUsersFlow(): kotlinx.coroutines.flow.Flow<List<UserEntity>> {
+        return dao.getAllUsersFlow()
+    }
+    
+    override suspend fun deactivateAccount(userId: Int): Result<Unit> {
+        return try {
+            dao.deactivateAccount(userId)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
     override suspend fun emailExists(email: String): Result<Boolean> {
         return try {
             val count = dao.emailExists(email)

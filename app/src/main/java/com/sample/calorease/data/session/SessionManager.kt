@@ -26,15 +26,20 @@ class SessionManager @Inject constructor(
         val USER_EMAIL = stringPreferencesKey("user_email")
         val USER_ID = intPreferencesKey("user_id")
         val USER_ROLE = stringPreferencesKey("user_role")
+        val HAS_EVER_LOGGED_IN = booleanPreferencesKey("has_ever_logged_in")
+        val LAST_DASHBOARD_MODE = stringPreferencesKey("last_dashboard_mode")  // PHASE 3: "admin" or "user"
+        val ACCOUNT_DELETION_SUCCESS = booleanPreferencesKey("account_deletion_success")  // PHASE 3
     }
 
     /**
      * Set user as logged in with their email
+     * Also marks that user has logged in at least once (for returning user detection)
      */
     suspend fun setLoggedIn(email: String) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.IS_LOGGED_IN] = true
             preferences[PreferencesKeys.USER_EMAIL] = email
+            preferences[PreferencesKeys.HAS_EVER_LOGGED_IN] = true  // ✅ Mark as returning user
         }
     }
 
@@ -104,6 +109,84 @@ class SessionManager @Inject constructor(
     fun isLoggedInFlow(): Flow<Boolean> {
         return context.dataStore.data.map { preferences ->
             preferences[PreferencesKeys.IS_LOGGED_IN] ?: false
+        }
+    }
+    
+    /**
+     * Check if user has ever logged in before (for returning user detection)
+     * This flag persists even after logout, unlike IS_LOGGED_IN
+     */
+    suspend fun hasEverLoggedIn(): Boolean {
+        val preferences = context.dataStore.data.first()
+        return preferences[PreferencesKeys.HAS_EVER_LOGGED_IN] ?: false
+    }
+    
+    /**
+     * Checks if this is a fresh install by looking for a non-backed-up marker file.
+     * If the marker is missing (meaning fresh install), we FORCE clear the session.
+     * This handles the edge case where 'allowBackup=true' restores the session_prefs
+     * but we want the user to log in again.
+     */
+    suspend fun checkInstallState() {
+        // This directory is NEVER backed up by Android Auto Backup
+        val noBackupDir = context.noBackupFilesDir
+        val installMarker = java.io.File(noBackupDir, "install_marker")
+        
+        if (!installMarker.exists()) {
+            // Marker missing = Fresh Install (or Clear Data)
+            // Even if dataStore has a restored session, it is INVALID for this new install instance.
+            clearSession()
+            
+            // Create marker so subsequent runs know this install is valid
+            try {
+                installMarker.createNewFile()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+    
+    /**
+     * PHASE 3: Save last dashboard mode (admin or user)
+     */
+    suspend fun saveLastDashboardMode(mode: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LAST_DASHBOARD_MODE] = mode
+        }
+    }
+    
+    /**
+     * PHASE 3: Get last dashboard mode
+     * Returns "admin" or "user", defaults to "user"
+     */
+    suspend fun getLastDashboardMode(): String {
+        val preferences = context.dataStore.data.first()
+        return preferences[PreferencesKeys.LAST_DASHBOARD_MODE] ?: "user"
+    }
+    
+    /**
+     * PHASE 3: Save account deletion success flag
+     */
+    suspend fun saveAccountDeletionSuccess(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.ACCOUNT_DELETION_SUCCESS] = value
+        }
+    }
+    
+    /**
+     * PHASE 3: Check if account was just deleted (for login success message)
+     */
+    suspend fun wasAccountDeleted(): Boolean {
+        val preferences = context.dataStore.data.first()
+        return preferences[PreferencesKeys.ACCOUNT_DELETION_SUCCESS] ?: false
+    }
+    
+    /**
+     * PHASE 3: Clear account deletion flag (after showing success message)
+     */
+    suspend fun clearAccountDeletionFlag() {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.ACCOUNT_DELETION_SUCCESS] = false
         }
     }
 }

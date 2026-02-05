@@ -4,7 +4,12 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sample.calorease.data.local.entity.UserEntity
+import com.sample.calorease.data.model.UserStats
+import com.sample.calorease.data.repository.LegacyCalorieRepository
 import com.sample.calorease.data.session.SessionManager
+import com.sample.calorease.domain.model.ActivityLevel
+import com.sample.calorease.domain.model.Gender
+import com.sample.calorease.domain.model.WeightGoal
 import com.sample.calorease.domain.repository.UserRepository
 import com.sample.calorease.domain.usecase.CalculatorUseCase
 import com.sample.calorease.util.ValidationUtils
@@ -26,14 +31,18 @@ data class AuthState(
     val nameError: String? = null,
     val isLoading: Boolean = false,
     val isLoginSuccess: Boolean = false,
-    val isSignUpSuccess: Boolean = false
+    val isSignUpSuccess: Boolean = false,
+    // ✅ NEW: Navigation destination flags
+    val navigateToDashboard: Boolean = false,
+    val navigateToOnboarding: Boolean = false
 )
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val sessionManager: SessionManager,
-    private val calculatorUseCase: CalculatorUseCase
+    private val calculatorUseCase: CalculatorUseCase,
+    private val legacyRepository: com.sample.calorease.domain.repository.LegacyCalorieRepository
 ) : ViewModel() {
     
     private val _authState = MutableStateFlow(AuthState())
@@ -41,21 +50,21 @@ class AuthViewModel @Inject constructor(
     
     fun updateEmail(email: String) {
         _authState.value = _authState.value.copy(
-            email = email,
+            email = email.trimEnd(),  // Trim trailing whitespace
             emailError = null
         )
     }
     
     fun updatePassword(password: String) {
         _authState.value = _authState.value.copy(
-            password = password,
+            password = password.trimEnd(),  // Trim trailing whitespace
             passwordError = null
         )
     }
     
     fun updateConfirmPassword(confirmPassword: String) {
         _authState.value = _authState.value.copy(
-            confirmPassword = confirmPassword,
+            confirmPassword = confirmPassword.trimEnd(),  // Trim trailing whitespace
             confirmPasswordError = null
         )
     }
@@ -68,8 +77,8 @@ class AuthViewModel @Inject constructor(
     }
     
     fun login() {
-        val email = _authState.value.email
-        val password = _authState.value.password
+        val email = _authState.value.email.trim()  // Trim all whitespace for email
+        val password = _authState.value.password.trimEnd()  // Trim trailing whitespace only
         
         // Validate
         val emailError = ValidationUtils.validateEmail(email)
@@ -83,37 +92,71 @@ class AuthViewModel @Inject constructor(
             return
         }
         
+        
         _authState.value = _authState.value.copy(isLoading = true)
         
         viewModelScope.launch {
-            try {
-                // Use new UserRepository login
-                val result = userRepository.login(email, password)
+            // Check if email exists first for better error messages
+            userRepository.getUserByEmail(email).onSuccess { existingUser ->
+                if (existingUser == null) {
+                    // Email doesn't exist
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        emailError = "No account found with this email"
+                    )
+                    Log.d("AuthViewModel", "Login failed: Email not found")
+                    return@launch
+                }
                 
-                result.onSuccess { user ->
-                    // Save session with userId and role
+                // ✅ Phase 3: Check if account is deactivated
+                if (existingUser.accountStatus == "deactivated") {
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        emailError = "This account is no longer accessible as it was deleted. Please contact support."
+                    )
+                    Log.d("AuthViewModel", "Login failed: Account deactivated")
+                    return@launch
+                }
+                
+                // Email exists and account active, try login
+                userRepository.login(email, password).onSuccess { user ->
+                    // ✅ FIX: Always allow login - MainViewModel handles onboarding routing
+                    // Removed block that prevented login for incomplete onboarding (catch-22 bug)
                     sessionManager.setLoggedIn(user.email)
                     sessionManager.saveUserId(user.userId)
                     sessionManager.saveRole(user.role)
                     
+                    // PHASE 1: Save initial dashboard mode based on role
+                    val initialMode = if (user.role == "admin") "admin" else "user"
+                    sessionManager.saveLastDashboardMode(initialMode)
+                    Log.d("AuthViewModel", "🔒 Saved initial lastDashboardMode=$initialMode (role=${user.role})")
+                    
+                    // ✅ CRITICAL: Check onboarding to determine destination
+                    val userStats = legacyRepository.getUserStats(user.userId)
+                    val onboardingCompleted = userStats?.onboardingCompleted ?: false
+                    
                     _authState.value = _authState.value.copy(
                         isLoading = false,
-                        isLoginSuccess = true
+                        isLoginSuccess = true,
+                        navigateToDashboard = onboardingCompleted,
+                        navigateToOnboarding = !onboardingCompleted
                     )
-                    Log.d("AuthViewModel", "Login successful for user: ${user.nickname}")
+                    Log.d("AuthViewModel", "✅ Login successful for user: ${user.nickname} (userId=${user.userId}, onboarding=$onboardingCompleted)")
                 }.onFailure { error ->
+                    // Login failed - likely wrong password
                     _authState.value = _authState.value.copy(
                         isLoading = false,
-                        emailError = error.message ?: "Invalid credentials"
+                        passwordError = "Incorrect password"
                     )
-                    Log.e("AuthViewModel", "Login error", error)
+                    Log.e("AuthViewModel", "Login error: Wrong password", error)
                 }
-            } catch (e: Exception) {
+            }.onFailure { error ->
+                // Database error during email check
                 _authState.value = _authState.value.copy(
                     isLoading = false,
-                    emailError = "Login failed"
+                    emailError = "Login failed. Please try again."
                 )
-                Log.e("AuthViewModel", "Login error", e)
+                Log.e("AuthViewModel", "Database error during login", error)
             }
         }
     }
@@ -122,21 +165,17 @@ class AuthViewModel @Inject constructor(
         val email = _authState.value.email
         val password = _authState.value.password
         val confirmPassword = _authState.value.confirmPassword
-        val name = _authState.value.name
         
-        // Validate all fields
+        // Validate fields (name was removed from signup)
         val emailError = ValidationUtils.validateEmail(email)
         val passwordError = ValidationUtils.validatePassword(password)
         val confirmPasswordError = ValidationUtils.validateConfirmPassword(password, confirmPassword)
-        val nameError = ValidationUtils.validateName(name)
         
-        if (emailError != null || passwordError != null || 
-            confirmPasswordError != null || nameError != null) {
+        if (emailError != null || passwordError != null || confirmPasswordError != null) {
             _authState.value = _authState.value.copy(
                 emailError = emailError,
                 passwordError = passwordError,
-                confirmPasswordError = confirmPasswordError,
-                nameError = nameError
+                confirmPasswordError = confirmPasswordError
             )
             return
         }
@@ -145,12 +184,42 @@ class AuthViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                // Create new user with default values
-                // Note: User will complete onboarding to set these properly
+                // Check for duplicate email - properly unwrap Result
+                val emailCheckResult = userRepository.getUserByEmail(email)
+                
+                var shouldProceed = false
+                var emailExists = false
+                
+                emailCheckResult.onSuccess { existingUser ->
+                    if (existingUser != null) {
+                        emailExists = true
+                    } else {
+                        shouldProceed = true
+                    }
+                }.onFailure { error ->
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        emailError = "Database error: ${error.message}"
+                    )
+                    Log.e("AuthViewModel", "Email check error", error)
+                }
+                
+                if (emailExists) {
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        emailError = "This email is already registered"
+                    )
+                    Log.d("AuthViewModel", "Email already exists: $email")
+                    return@launch
+                }
+                
+                if (!shouldProceed) return@launch
+                
+                // Create new user (name collection moved to onboarding)
                 val newUser = UserEntity(
                     email = email,
-                    password = password,
-                    nickname = name,
+                    password = password.trim(),  // Trim to match login trimming
+                    nickname = "",  // Will be set in onboarding
                     role = "USER",
                     isActive = true,
                     gender = "Male", // Default, will be updated in onboarding
@@ -167,6 +236,10 @@ class AuthViewModel @Inject constructor(
                 val result = userRepository.registerUser(newUser)
                 
                 result.onSuccess { userId ->
+                    // ✅ CRITICAL FIX: Don't create default user_stats here!
+                    // user_stats will ONLY be created when onboarding completes
+                    // This prevents wrong gender (MALE) showing instead of user's selection
+                    
                     // Save session
                     sessionManager.setLoggedIn(email)
                     sessionManager.saveUserId(userId.toInt())
@@ -195,19 +268,19 @@ class AuthViewModel @Inject constructor(
     }
     
     fun googleSignIn() {
-        // TODO: Implement Google Sign In
         Log.d("AuthViewModel", "Google Sign In clicked")
     }
     
     fun resetSuccessFlags() {
         _authState.value = _authState.value.copy(
             isLoginSuccess = false,
-            isSignUpSuccess = false
+            isSignUpSuccess = false,
+            navigateToDashboard = false,  // ✅ Clear nav flags
+            navigateToOnboarding = false
         )
     }
     
     fun resetPassword(email: String) {
-        // TODO: Implement password reset
         Log.d("AuthViewModel", "Reset password for: $email")
     }
 }

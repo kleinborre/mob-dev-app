@@ -8,8 +8,10 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -26,6 +28,8 @@ import com.sample.calorease.presentation.navigation.Screen
 import com.sample.calorease.presentation.theme.DarkTurquoise
 import com.sample.calorease.presentation.theme.Poppins
 import com.sample.calorease.presentation.viewmodel.OnboardingViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun OnboardingGoalsScreen(
@@ -33,6 +37,13 @@ fun OnboardingGoalsScreen(
     viewModel: OnboardingViewModel = hiltViewModel()
 ) {
     val state by viewModel.onboardingState.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
+    
+    // ✅ FIX STEP 3: Load saved state when screen opens (including back navigation)
+    LaunchedEffect(Unit) {
+        android.util.Log.d("OnboardingGoals", "🔄 Loading saved progress...")
+        viewModel.loadProgress()
+    }
     
     Column(
         modifier = Modifier
@@ -60,7 +71,17 @@ fun OnboardingGoalsScreen(
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        // Target Weight
+        // Target Weight Section
+        Text(
+            text = "Target Weight",
+            style = MaterialTheme.typography.bodyLarge,
+            fontFamily = Poppins,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.fillMaxWidth()
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
         CalorEaseTextField(
             value = state.targetWeight,
             onValueChange = viewModel::updateTargetWeight,
@@ -106,8 +127,13 @@ fun OnboardingGoalsScreen(
                 text = "Next",
                 onClick = {
                     if (viewModel.validateGoals()) {
-                        viewModel.calculateResults()
-                        navController.navigate(Screen.OnboardingResults.route)
+                        // ✅ PHASE J FIX: Await saveStepThree before navigation
+                        coroutineScope.launch {
+                            viewModel.saveStepThree()  // Suspends until save completes
+                            viewModel.calculateResults()
+                            delay(100)  // Small delay for calculations
+                            navController.navigate(Screen.OnboardingResults.route)
+                        }
                     }
                 },
                 modifier = Modifier.weight(1f)
@@ -127,7 +153,7 @@ fun WeightGoalSelector(
         modifier = Modifier
             .fillMaxWidth()
             .selectableGroup(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)  // Reduced from 8dp
     ) {
         WeightGoal.entries.forEach { goal ->
             val goalText = when (goal) {
@@ -147,7 +173,7 @@ fun WeightGoalSelector(
                         selected = (selectedGoal == goal),
                         onClick = { onGoalSelected(goal) }
                     )
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 4.dp),  // Reduced from 8dp
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 RadioButton(

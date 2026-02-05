@@ -27,6 +27,37 @@ fun OnboardingResultsScreen(
     viewModel: OnboardingViewModel = hiltViewModel()
 ) {
     val state by viewModel.onboardingState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
+    // ✅ REALTIME AUTO-CALCULATE: Trigger when INPUT data changes (height, weight, age)
+    // This ensures calculations run IMMEDIATELY when user arrives from Step 3 with data
+    // Retriggers if user changes input on Steps 1-3 and returns
+    LaunchedEffect(state.height, state.weight, state.age, state.targetWeight) {
+        android.util.Log.d("OnboardingResults", "🔍 Input data changed, checking if calculation needed...")
+        android.util.Log.d("OnboardingResults", "  Input: height=${state.height}, weight=${state.weight}, age=${state.age}")
+        android.util.Log.d("OnboardingResults", "  Calculated: BMI=${state.bmiValue}, BMR=${state.bmr}, TDEE=${state.tdee}")
+        
+        // Check if we have all required INPUT data
+        val hasInputData = state.height.isNotBlank() && 
+                          state.weight.isNotBlank() && 
+                          state.age.isNotBlank() &&
+                          state.targetWeight.isNotBlank()
+        
+        // Check if calculations are missing or zero
+        val needsCalculation = state.bmiValue == 0.0 || 
+                               state.bmr == 0.0 || 
+                               state.tdee == 0.0 || 
+                               state.goalCalories == 0.0
+        
+        if (hasInputData && needsCalculation) {
+            android.util.Log.d("OnboardingResults", "✅ Triggering REALTIME calculation...")
+            viewModel.calculateResults()
+        } else if (!hasInputData) {
+            android.util.Log.w("OnboardingResults", "⚠️ Missing input data")
+        } else {
+            android.util.Log.d("OnboardingResults", "✅ Calculations already present")
+        }
+    }
     
     // Navigate on save success
     LaunchedEffect(state.isSaveSuccess) {
@@ -87,6 +118,7 @@ fun OnboardingResultsScreen(
                 value = "%.0f cal/day".format(state.goalCalories),
                 highlight = true
             )
+
         }
         
         Spacer(modifier = Modifier.height(24.dp))
@@ -100,10 +132,23 @@ fun OnboardingResultsScreen(
         
         Spacer(modifier = Modifier.weight(1f))
         
-        // Get Started Button
+        // Get Started Button with validation
         CalorEaseButton(
             text = "Get Started",
-            onClick = { viewModel.saveUserStats() },
+            onClick = {
+                // ✅ FIX: Validate data before saving
+                if (state.bmiValue == 0.0 || state.goalCalories == 0.0) {
+                    android.util.Log.e("OnboardingResults", "❌ Cannot save - values are zero!")
+                    android.widget.Toast.makeText(
+                        context,
+                        "Error calculating health metrics. Please go back and verify your information.",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                } else {
+                    android.util.Log.d("OnboardingResults", "✅ Saving user stats...")
+                    viewModel.saveUserStats()
+                }
+            },
             isLoading = state.isLoading
         )
         
