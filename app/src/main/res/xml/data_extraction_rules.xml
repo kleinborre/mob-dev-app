@@ -5,15 +5,23 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <!-- Include everything by default -->
+        <include domain="file" path="."/>
+        <include domain="database" path="."/>
+        <include domain="sharedpref" path="."/>
+        <include domain="external" path="."/>
+        
+        <!-- Exclude session preferences to force login on fresh install -->
+        <exclude domain="sharedpref" path="session_prefs.preferences_pb"/>
     </cloud-backup>
-    <!--
+    
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <!-- Similar rules for D2D transfer if needed, usually safer to exclude session too -->
+        <include domain="file" path="."/>
+        <include domain="database" path="."/>
+        <include domain="sharedpref" path="."/>
+        <include domain="external" path="."/>
+        
+        <exclude domain="sharedpref" path="session_prefs.preferences_pb"/>
     </device-transfer>
-    -->
 </data-extraction-rules>

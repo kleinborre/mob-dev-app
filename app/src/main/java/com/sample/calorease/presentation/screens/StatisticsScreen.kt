@@ -3,6 +3,7 @@ package com.sample.calorease.presentation.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -24,6 +25,7 @@ import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
 import com.patrykandpatrick.vico.core.entry.entryModelOf
 import com.sample.calorease.presentation.components.BottomNavigationBar
 import com.sample.calorease.presentation.components.CalorEaseCard
+import com.sample.calorease.presentation.navigation.Screen
 import com.sample.calorease.presentation.theme.DarkTurquoise
 import com.sample.calorease.presentation.theme.Poppins
 import com.sample.calorease.presentation.viewmodel.StatisticsViewModel
@@ -35,6 +37,13 @@ fun StatisticsScreen(
     viewModel: StatisticsViewModel = hiltViewModel()
 ) {
     val state by viewModel.statisticsState.collectAsState()
+    
+    // ✅ Refresh on composition (works with state restoration disabled)
+    // Only runs once per composition, no flickering
+    LaunchedEffect(Unit) {
+        android.util.Log.d("StatisticsScreen", "🔄 Screen composed - refreshing...")
+        viewModel.refreshData()
+    }
     
     Scaffold(
         bottomBar = { BottomNavigationBar(navController = navController) }

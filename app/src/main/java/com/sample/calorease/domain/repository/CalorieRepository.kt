@@ -29,7 +29,17 @@ interface CalorieRepository {
     suspend fun deleteDailyEntry(entryId: Int): Result<Unit>
     
     /**
+     * Update an existing daily entry
+     */
+    suspend fun updateDailyEntry(entry: DailyEntryEntity): Result<Unit>
+    
+    /**
      * Get entries by meal type
      */
     suspend fun getEntriesByMealType(userId: Int, date: Long, mealType: String): Result<List<DailyEntryEntity>>
+    
+    /**
+     * Get all entries for a user within date range (for Statistics)
+     */
+    suspend fun getDailyEntriesByDateRange(userId: Int, startDate: Long, endDate: Long): Result<List<DailyEntryEntity>>
 }

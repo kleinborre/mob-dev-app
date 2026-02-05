@@ -17,12 +17,15 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun AuthScaffold(
     title: String = "",
-    onBackClick: () -> Unit,
+    onBackClick: (() -> Unit)? = null,  // ✅ Phase 2: Made nullable to support hiding back button
     showBackButton: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
+    snackbarHost: @Composable () -> Unit = {},  // PHASE 3: For success messages
     content: @Composable (PaddingValues) -> Unit
 ) {
     Scaffold(
+        snackbarHost = snackbarHost,  // PHASE 3
         topBar = {
             TopAppBar(
                 title = { 
@@ -31,7 +34,8 @@ fun AuthScaffold(
                     }
                 },
                 navigationIcon = {
-                    if (showBackButton) {
+                    // ✅ Phase 2: Only show back button if onBackClick is provided
+                    if (showBackButton && onBackClick != null) {
                         IconButton(onClick = onBackClick) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -46,6 +50,7 @@ fun AuthScaffold(
                 )
             )
         },
+        bottomBar = bottomBar,
         containerColor = MaterialTheme.colorScheme.background,
         content = content
     )

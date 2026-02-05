@@ -5,6 +5,7 @@ import androidx.room.RoomDatabase
 import com.sample.calorease.data.local.dao.CalorieDao
 import com.sample.calorease.data.local.entity.DailyEntryEntity
 import com.sample.calorease.data.local.entity.UserEntity
+import com.sample.calorease.data.model.UserStats
 
 /**
  * CalorEase Room Database
@@ -12,8 +13,8 @@ import com.sample.calorease.data.local.entity.UserEntity
  * Database name: "calorease_db"
  */
 @Database(
-    entities = [UserEntity::class, DailyEntryEntity::class],
-    version = 1,
+    entities = [UserEntity::class, DailyEntryEntity::class, UserStats::class],
+    version = 12,  // PHASE 2: accountStatus column already in entity, incrementing to trigger rebuild
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {

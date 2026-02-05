@@ -90,7 +90,9 @@ fun ForgotPasswordScreen(navController: NavController) {
         CalorEaseButton(
             text = "Reset Password",
             onClick = {
-                if (ValidationUtils.isValidEmail(email)) {
+                if (email.isBlank()) {
+                    emailError = "Email cannot be empty"
+                } else if (ValidationUtils.isValidEmail(email)) {
                     showSuccessDialog = true
                 } else {
                     emailError = "Invalid email address"
