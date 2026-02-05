@@ -51,9 +51,27 @@ class CalorieRepositoryImpl @Inject constructor(
         }
     }
     
+    override suspend fun updateDailyEntry(entry: DailyEntryEntity): Result<Unit> {
+        return try {
+            dao.updateDailyEntry(entry)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
     override suspend fun getEntriesByMealType(userId: Int, date: Long, mealType: String): Result<List<DailyEntryEntity>> {
         return try {
             val entries = dao.getEntriesByMealType(userId, date, mealType)
+            Result.success(entries)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    override suspend fun getDailyEntriesByDateRange(userId: Int, startDate: Long, endDate: Long): Result<List<DailyEntryEntity>> {
+        return try {
+            val entries = dao.getDailyEntriesByDateRangeForUser(userId, startDate, endDate)
             Result.success(entries)
         } catch (e: Exception) {
             Result.failure(e)

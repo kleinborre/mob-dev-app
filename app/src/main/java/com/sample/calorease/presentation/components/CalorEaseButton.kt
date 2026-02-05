@@ -18,7 +18,8 @@ fun CalorEaseButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    isLoading: Boolean = false
+    isLoading: Boolean = false,
+    backgroundColor: Color = DarkTurquoise  // Allow custom background color
 ) {
     Button(
         onClick = onClick,
@@ -28,9 +29,9 @@ fun CalorEaseButton(
         enabled = enabled && !isLoading,
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = DarkTurquoise,
+            containerColor = backgroundColor,
             contentColor = White,
-            disabledContainerColor = DarkTurquoise.copy(alpha = 0.5f),
+            disabledContainerColor = backgroundColor.copy(alpha = 0.5f),
             disabledContentColor = White.copy(alpha = 0.5f)
         ),
         elevation = ButtonDefaults.buttonElevation(

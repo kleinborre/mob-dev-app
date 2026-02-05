@@ -1,6 +1,13 @@
 package com.sample.calorease.presentation.navigation
 
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -55,11 +62,29 @@ fun NavGraph(
         }
         
         composable(Screen.Statistics.route) {
-            StatisticsScreen(navController = navController)
+            StatsScreen(navController = navController)
         }
         
         composable(Screen.Settings.route) {
             SettingsScreen(navController = navController)
+        }
+        
+        // ✅ Phase 4: Admin Routes
+        composable(Screen.AdminUsers.route) {
+            AdminUsersScreen(navController = navController)
+        }
+        
+        composable(Screen.AdminStats.route) {
+            AdminStatsScreen(navController = navController)
+        }
+        
+        composable(Screen.AdminSettings.route) {
+            AdminSettingsScreen(navController = navController)
+        }
+        
+        // Food Logs/History - Full implementation
+        composable("food_logs") {
+            FoodLogsScreen(navController = navController)
         }
     }
 }

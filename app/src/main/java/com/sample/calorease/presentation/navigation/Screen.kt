@@ -12,4 +12,10 @@ sealed class Screen(val route: String) {
     data object Dashboard : Screen("dashboard")
     data object Statistics : Screen("statistics")
     data object Settings : Screen("settings")
+    data object Account : Screen("account")
+    
+    // ✅ Phase 4: Admin Routes
+    data object AdminUsers : Screen("admin_users")
+    data object AdminStats : Screen("admin_stats")
+    data object AdminSettings : Screen("admin_settings")
 }

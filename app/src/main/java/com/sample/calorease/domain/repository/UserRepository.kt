@@ -36,6 +36,22 @@ interface UserRepository {
     suspend fun updateUser(user: UserEntity): Result<Unit>
     
     /**
+     * Get all users (Admin only)
+     * ✅ Phase 5: For admin users management
+     */
+    suspend fun getAllUsers(): Result<List<UserEntity>>
+    
+    /**
+     * PHASE 2: Get all users as Flow for real-time updates (Admin only)
+     */
+    fun getAllUsersFlow(): kotlinx.coroutines.flow.Flow<List<UserEntity>>
+    
+    /**
+     * PHASE 2: Deactivate user account (mark as deactivated, don't delete)
+     */
+    suspend fun deactivateAccount(userId: Int): Result<Unit>
+    
+    /**
      * Check if email exists
      */
     suspend fun emailExists(email: String): Result<Boolean>

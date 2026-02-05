@@ -1,8 +1,8 @@
 package com.sample.calorease.presentation.components
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -12,26 +12,13 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.sample.calorease.presentation.navigation.Screen
 import com.sample.calorease.presentation.theme.DarkTurquoise
-import com.sample.calorease.presentation.theme.Poppins
 
-sealed class BottomNavItem(
-    val route: String,
-    val icon: ImageVector,
-    val title: String
-) {
-    object Dashboard : BottomNavItem(Screen.Dashboard.route, Icons.Default.Home, "Home")
-    object Statistics : BottomNavItem(Screen.Statistics.route, Icons.AutoMirrored.Filled.ShowChart, "Stats")
-    object Settings : BottomNavItem(Screen.Settings.route, Icons.Default.Person, "Account")
-}
-
+/**
+ * Bottom Navigation Bar for Admin screens
+ * Provides consistent navigation between admin pages
+ */
 @Composable
-fun BottomNavigationBar(navController: NavController) {
-    val items = listOf(
-        BottomNavItem.Dashboard,
-        BottomNavItem.Statistics,
-        BottomNavItem.Settings
-    )
-    
+fun AdminBottomNavigationBar(navController: NavController) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     
@@ -39,7 +26,7 @@ fun BottomNavigationBar(navController: NavController) {
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = DarkTurquoise
     ) {
-        items.forEach { item ->
+        AdminNavItem.values().forEach { item ->
             NavigationBarItem(
                 icon = {
                     Icon(
@@ -47,33 +34,43 @@ fun BottomNavigationBar(navController: NavController) {
                         contentDescription = item.title
                     )
                 },
-                label = {
-                    Text(
-                        text = item.title,
-                        fontFamily = Poppins
-                    )
-                },
+                label = { Text(item.title) },
                 selected = currentRoute == item.route,
                 onClick = {
                     if (currentRoute != item.route) {
                         navController.navigate(item.route) {
-                            // Pop up to the start destination to avoid building a large stack
-                            popUpTo(Screen.Dashboard.route) {
-                                saveState = false  // ✅ Don't save state - ensures fresh composition
+                            // Pop up to the admin stats screen to avoid building up a large stack
+                            popUpTo(Screen.AdminStats.route) {
+                                saveState = true
                             }
                             // Avoid multiple copies of the same destination
                             launchSingleTop = true
-                            // ✅ Don't restore state - forces LaunchedEffect to trigger
-                            restoreState = false
+                            // Restore state when reselecting a previously selected item
+                            restoreState = true
                         }
                     }
                 },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = DarkTurquoise,
                     selectedTextColor = DarkTurquoise,
-                    indicatorColor = DarkTurquoise.copy(alpha = 0.1f)
+                    indicatorColor = DarkTurquoise.copy(alpha = 0.1f),
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             )
         }
     }
+}
+
+/**
+ * Admin navigation items
+ */
+enum class AdminNavItem(
+    val title: String,
+    val icon: ImageVector,
+    val route: String
+) {
+    STATISTICS("Statistics", Icons.AutoMirrored.Filled.ShowChart, Screen.AdminStats.route),
+    USERS("Manage Users", Icons.Default.People, Screen.AdminUsers.route),
+    SETTINGS("Settings", Icons.Default.Settings, Screen.AdminSettings.route)
 }

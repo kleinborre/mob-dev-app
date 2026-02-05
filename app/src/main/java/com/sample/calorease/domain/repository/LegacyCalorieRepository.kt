@@ -14,8 +14,14 @@ interface LegacyCalorieRepository {
     suspend fun insertUserStats(userStats: UserStats)
     suspend fun updateUserStats(userStats: UserStats)
     fun getUserStats(): Flow<UserStats?>
+    suspend fun getUserStats(userId: Int): UserStats?  // Get by userId
     suspend fun getUserStatsOnce(): UserStats?
     suspend fun deleteAllUserStats()
+    
+    // ✅ Onboarding State Persistence
+    suspend fun saveOnboardingState(userStats: UserStats)  // Partial save during onboarding
+    suspend fun updateOnboardingProgress(userId: Int, step: Int)
+    suspend fun markOnboardingComplete(userId: Int)
     
     // Daily Entry Operations
     suspend fun insertDailyEntry(dailyEntry: DailyEntry)
@@ -27,4 +33,5 @@ interface LegacyCalorieRepository {
     suspend fun getDailyEntriesByDateRange(startDate: String, endDate: String): List<DailyEntry>
     suspend fun deleteDailyEntry(dailyEntry: DailyEntry)
     suspend fun deleteAllDailyEntries()
+    suspend fun deleteAllDailyEntriesForUser(userId: Int)  // ✅ NEW: Delete user progress
 }

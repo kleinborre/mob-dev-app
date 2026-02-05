@@ -14,13 +14,13 @@ enum class ActivityLevel(val multiplier: Double) {
 }
 
 enum class WeightGoal(val calorieAdjustment: Int) {
-    LOSE_0_25_KG(-250),   // Lose 0.25kg per week
+    LOSE_1_KG(-1000),     // Lose 1kg per week (most aggressive)
     LOSE_0_5_KG(-500),    // Lose 0.5kg per week
-    LOSE_1_KG(-1000),     // Lose 1kg per week
+    LOSE_0_25_KG(-250),   // Lose 0.25kg per week (least aggressive)
     MAINTAIN(0),          // Maintain current weight
-    GAIN_0_25_KG(250),    // Gain 0.25kg per week
+    GAIN_0_25_KG(250),    // Gain 0.25kg per week (least aggressive)
     GAIN_0_5_KG(500),     // Gain 0.5kg per week
-    GAIN_1_KG(1000)       // Gain 1kg per week
+    GAIN_1_KG(1000)       // Gain 1kg per week (most aggressive)
 }
 
 enum class BmiStatus {
