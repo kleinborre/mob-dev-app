@@ -50,10 +50,11 @@ fun GettingStartedScreen(navController: NavController) {
     ) {
         Spacer(modifier = Modifier.height(60.dp))
         
-        //  Carousel
+        //  Carousel (swipe disabled to prevent manual navigation back)
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            userScrollEnabled = false  // BUGFIX Issue 1: Disable manual swiping
         ) { page ->
             OnboardingPage(page)
         }

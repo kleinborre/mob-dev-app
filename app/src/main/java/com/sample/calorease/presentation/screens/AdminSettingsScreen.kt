@@ -7,7 +7,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -42,11 +44,15 @@ fun AdminSettingsScreen(
         }
     }
     
-    // PART 3: Clear session when signing out
+    // BUGFIX Issue 3: Clear session AND navigate to Login when signing out
     androidx.compose.runtime.LaunchedEffect(shouldSignOut) {
         if (shouldSignOut) {
             val sessionManager = com.sample.calorease.data.session.SessionManager(context)
             sessionManager.clearSession()
+            // Navigate to Login (not Getting Started, as they've logged in before)
+            navController.navigate(com.sample.calorease.presentation.navigation.Screen.Login.route) {
+                popUpTo(0) { inclusive = true }  // Clear entire back stack
+            }
         }
     }
     
@@ -96,7 +102,8 @@ fun AdminSettingsScreen(
                     
                     CalorEaseButton(
                         text = "Switch to User Mode",
-                        onClick = { showSwitchConfirm = true }  // PHASE 1: Show confirmation
+                        onClick = { showSwitchConfirm = true },
+                        backgroundColor = MaterialTheme.colorScheme.onSurface  // Switched to black
                     )
                 }
             }
@@ -127,7 +134,7 @@ fun AdminSettingsScreen(
                     CalorEaseButton(
                         text = "Sign Out",
                         onClick = { showSignOutConfirm = true },
-                        backgroundColor = MaterialTheme.colorScheme.onSurface  // PHASE 4: Black button
+                        backgroundColor = DarkTurquoise  // Switched to turquoise
                     )
                 }
             }

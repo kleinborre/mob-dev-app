@@ -12,7 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember  // PHASE 3: For snackbarHostState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,9 +46,17 @@ fun LoginScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
     
-    // PHASE 3: Show account deletion success message
+    // BUGFIX Issue 2: Only show back button for NEW users coming from Getting Started
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val previousRoute = navController.previousBackStackEntry?.destination?.route
+    
+    // Session manager for both account deletion check and login history
+    val sessionManager = remember { com.sample.calorease.data.session.SessionManager(context) }
+    var hasEverLoggedIn by remember { mutableStateOf<Boolean>(false) }
+    
+    // Combined LaunchedEffect: Check account deletion & login history & load last email
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        val sessionManager = com.sample.calorease.data.session.SessionManager(context)
+        // PHASE 3: Show account deletion success message
         if (sessionManager.wasAccountDeleted()) {
             snackbarHostState.showSnackbar(
                 message = "✅ Account successfully deleted",
@@ -54,12 +64,19 @@ fun LoginScreen(
             )
             sessionManager.clearAccountDeletionFlag()
         }
+        
+        // BUGFIX Issue 2: Check if user has ever logged in (new vs returning user)
+        hasEverLoggedIn = sessionManager.hasEverLoggedIn()
+        
+        // BUGFIX Issue 7: Load last login email for auto-fill (if exists)
+        val lastEmail = sessionManager.getLastLoginEmail()
+        if (!lastEmail.isNullOrEmpty()) {
+            viewModel.updateEmail(lastEmail)
+        }
     }
     
-    // ✅ Phase 2: Check if user came from Getting Started (can go back) or is returning user (no back)
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val previousRoute = navController.previousBackStackEntry?.destination?.route
-    val canGoBack = previousRoute == Screen.GettingStarted.route
+    // Only show back if: came from Getting Started AND user has never logged in
+    val canGoBack = previousRoute == Screen.GettingStarted.route && !hasEverLoggedIn
     
     // ✅ CRITICAL: Conditional navigation based on destination flags  
     LaunchedEffect(authState.navigateToDashboard, authState.navigateToOnboarding) {
@@ -81,7 +98,7 @@ fun LoginScreen(
     
     AuthScaffold(
         snackbarHost = { androidx.compose.material3.SnackbarHost(snackbarHostState) },  // PHASE 3
-        // ✅ Phase 2: Only show back button if coming from Getting Started
+        // BUGFIX Issue 2: Only show back button for new users from Getting Started
         onBackClick = if (canGoBack) {
             {
                 // Navigate to Getting Started explicitly, clear backstack
@@ -89,7 +106,7 @@ fun LoginScreen(
                     popUpTo(0) { inclusive = true }
                 }
             }
-        } else null  // No back button for returning users
+        } else null  // No back button for returning users or direct login access
     ) { paddingValues ->
         // Main Container acts as the structural column
         Column(
@@ -138,7 +155,10 @@ fun LoginScreen(
             // Email Field
             CalorEaseTextField(
                 value = authState.email,
-                onValueChange = viewModel::updateEmail,
+                onValueChange = { email ->
+                    // ✅ REAL FIX: Lambda wrapper ensures immediate state update
+                    viewModel.updateEmail(email)
+                },
                 label = "Email",
                 placeholder = "Enter your email",
                 leadingIcon = Icons.Default.Email,
@@ -152,7 +172,9 @@ fun LoginScreen(
             // Password Field
             CalorEaseTextField(
                 value = authState.password,
-                onValueChange = viewModel::updatePassword,
+                onValueChange = { password ->
+                    viewModel.updatePassword(password)
+                },
                 label = "Password",
                 placeholder = "Enter your password",
                 isPassword = true,
@@ -184,7 +206,13 @@ fun LoginScreen(
             // Login Button
             CalorEaseButton(
                 text = "Login",
-                onClick = viewModel::login,
+                onClick = {
+                    // ✅ REAL FIX: Capture email/password from current authState snapshot
+                    // This ensures we use the EXACT state at click time, not stale state
+                    val currentEmail = authState.email
+                    val currentPassword = authState.password
+                    viewModel.login(email = currentEmail, password = currentPassword)
+                },
                 isLoading = authState.isLoading
             )
             

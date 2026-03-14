@@ -26,7 +26,13 @@ data class DashboardState(
     val remainingCalories: Int = 0,
     val progress: Float = 0f,
     val isLoading: Boolean = true,
-    val error: String? = null
+    val error: String? = null,
+    
+    // BUGFIX Issue 8: Add entry dialog persistence
+    val showAddDialog: Boolean = false,
+    val tempFoodName: String = "",
+    val tempCalories: String = "",
+    val tempMealType: String = "Breakfast"
 )
 
 @HiltViewModel
@@ -183,5 +189,38 @@ class DashboardViewModel @Inject constructor(
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
         return calendar.timeInMillis
+    }
+    
+    // ============================================================================
+    // BUGFIX Issue 8: Add Entry Dialog Persistence
+    // ============================================================================
+    
+    fun showAddDialog() {
+        _dashboardState.value = _dashboardState.value.copy(showAddDialog = true)
+    }
+    
+    fun hideAddDialog() {
+        _dashboardState.value = _dashboardState.value.copy(showAddDialog = false)
+    }
+    
+    fun updateTempFoodName(value: String) {
+        _dashboardState.value = _dashboardState.value.copy(tempFoodName = value)
+    }
+    
+    fun updateTempCalories(value: String) {
+        _dashboardState.value = _dashboardState.value.copy(tempCalories = value)
+    }
+    
+    fun updateTempMealType(value: String) {
+        _dashboardState.value = _dashboardState.value.copy(tempMealType = value)
+    }
+    
+    fun clearTempInput() {
+        _dashboardState.value = _dashboardState.value.copy(
+            tempFoodName = "",
+            tempCalories = "",
+            tempMealType = "Breakfast",
+            showAddDialog = false
+        )
     }
 }

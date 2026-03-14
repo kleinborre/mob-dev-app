@@ -147,37 +147,51 @@ class OnboardingViewModel @Inject constructor(
     }
     
     fun updateHeight(height: String) {
-        // Real-time validation - clear error when valid
-        val error = if (height.isNotEmpty()) {
-            val h = height.toDoubleOrNull()
+        // ✅ UX FIX: Auto-clear "0" when user starts typing
+        val cleanValue = if (_onboardingState.value.height == "0" && height.isNotEmpty() && height != "0") {
+            height.replace("0", "") // Remove the 0
+        } else {
+            height
+        }
+        
+        // Real-time validation
+        val error = if (cleanValue.isNotEmpty()) {
+            val h = cleanValue.toDoubleOrNull()
             when {
                 h == null -> "Please enter a valid number"
-                h < 100 -> "Height must be at least 100 cm"
+                h < 100 -> "Height must be at least 100cm"
                 h > 250 -> "Height must be less than 250 cm"
-                else -> null  // ✅ Valid - clear error
+                else -> null
             }
         } else null
         
         _onboardingState.value = _onboardingState.value.copy(
-            height = height,
+            height = cleanValue,
             heightError = error
         )
     }
     
     fun updateWeight(weight: String) {
-        // Real-time validation - clear error when valid
-        val error = if (weight.isNotEmpty()) {
-            val w = weight.toDoubleOrNull()
+        // ✅ UX FIX: Auto-clear "0" when user starts typing
+        val cleanValue = if (_onboardingState.value.weight == "0" && weight.isNotEmpty() && weight != "0") {
+            weight.replace("0", "") // Remove the 0
+        } else {
+            weight
+        }
+        
+        // Real-time validation
+        val error = if (cleanValue.isNotEmpty()) {
+            val w = cleanValue.toDoubleOrNull()
             when {
                 w == null -> "Please enter a valid number"
                 w < 30 -> "Weight must be at least 30 kg"
                 w > 300 -> "Weight must be less than 300 kg"
-                else -> null  // ✅ Valid - clear error
+                else -> null
             }
         } else null
         
         _onboardingState.value = _onboardingState.value.copy(
-            weight = weight,
+            weight = cleanValue,
             weightError = error
         )
     }
@@ -592,8 +606,8 @@ class OnboardingViewModel @Inject constructor(
                     lastName = savedStats.lastName,
                     nickname = savedStats.nickname ?: "",  // ✅ Handle nullable
                     gender = savedStats.gender,
-                    height = if (savedStats.heightCm > 0) savedStats.heightCm.toInt().toString() else "",
-                    weight = if (savedStats.weightKg > 0) savedStats.weightKg.toInt().toString() else "",
+                    height = if (savedStats.heightCm > 0) savedStats.heightCm.toInt().toString() else "0",
+                    weight = if (savedStats.weightKg > 0) savedStats.weightKg.toInt().toString() else "0",
                     age = if (savedStats.age > 0) savedStats.age.toString() else "",
                     birthday = savedStats.birthday,
                     activityLevel = savedStats.activityLevel,

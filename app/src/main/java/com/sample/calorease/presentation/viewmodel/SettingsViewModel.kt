@@ -293,12 +293,15 @@ class SettingsViewModel @Inject constructor(
         _settingsState.value = _settingsState.value.copy(shouldNavigateToStart = false)
     }
     
+    
     /**
-     * PHASE 3: Save last dashboard mode to admin
+     * 🟠 PHASE 2 FIX: Switch to admin mode using injected SessionManager
      */
-    fun saveAndSwitchToAdmin() {
+    fun switchToAdminMode(onNavigate: () -> Unit) {
         viewModelScope.launch {
             sessionManager.saveLastDashboardMode("admin")
+            android.util.Log.d("SettingsViewModel", "🟠 Saved lastDashboardMode = admin")
+            onNavigate()
         }
     }
 }

@@ -219,7 +219,8 @@ fun SettingsScreen(
                             
                             CalorEaseButton(
                                 text = "Switch to Admin Mode",
-                                onClick = { showSwitchToAdminConfirm = true }  // PHASE 5: Show confirmation
+                                onClick = { showSwitchToAdminConfirm = true },
+                                backgroundColor = MaterialTheme.colorScheme.onSurface  // Switched to black
                             )
                         }
                     }
@@ -254,7 +255,7 @@ fun SettingsScreen(
                         CalorEaseButton(
                             text = "Sign Out",
                             onClick = viewModel::showLogoutConfirmDialog,
-                            backgroundColor = MaterialTheme.colorScheme.onSurface  // PHASE 5: Black button
+                            backgroundColor = DarkTurquoise  // Switched to turquoise
                         )
                     }
                 }
@@ -291,46 +292,6 @@ fun SettingsScreen(
                 }
             }
         }
-    }
-    
-    // PHASE 5: Switch to Admin Mode Confirmation Dialog
-    if (showSwitchToAdminConfirm) {
-        AlertDialog(
-            onDismissRequest = { showSwitchToAdminConfirm = false },
-            title = {
-                Text(
-                    text = "Switch to Admin Mode?",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontFamily = Poppins,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Text(
-                    text = "You will be redirected to the admin dashboard. You can return to user mode anytime from Admin Settings.",
-                    fontFamily = Poppins
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showSwitchToAdminConfirm = false
-                        viewModel.saveAndSwitchToAdmin()
-                        navController.navigate(Screen.AdminStats.route)
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = DarkTurquoise
-                    )
-                ) {
-                    Text("Switch", fontFamily = Poppins)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSwitchToAdminConfirm = false }) {
-                    Text("Cancel", fontFamily = Poppins, color = DarkTurquoise)
-                }
-            }
-        )
     }
     
     // Edit Weight Dialog
@@ -749,6 +710,49 @@ fun SettingsScreen(
                         fontFamily = Poppins,
                         fontWeight = FontWeight.Bold
                     )
+                }
+            }
+        )
+    }
+    
+    // Switch to Admin Confirmation Dialog
+    if (showSwitchToAdminConfirm) {
+        AlertDialog(
+            onDismissRequest = { showSwitchToAdminConfirm = false },
+            title = {
+                Text(
+                    text = "Switch to Admin Mode?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontFamily = Poppins,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "You will be redirected to the admin dashboard.",
+                    fontFamily = Poppins
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSwitchToAdminConfirm = false
+                        viewModel.switchToAdminMode {
+                            navController.navigate(Screen.AdminStats.route) {
+                                popUpTo(Screen.Dashboard.route) { inclusive = true }
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = DarkTurquoise
+                    )
+                ) {
+                    Text("Switch", fontFamily = Poppins)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSwitchToAdminConfirm = false }) {
+                    Text("Cancel", fontFamily = Poppins, color = DarkTurquoise)
                 }
             }
         )

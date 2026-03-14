@@ -129,8 +129,10 @@ fun OnboardingNameScreen(
             CalorEaseButton(
                 text = "Next",
                 onClick = {
-                    if (viewModel.validateName()) {
-                        viewModel.saveStepOne()  // ✅ PHASE 2: Save before navigate
+                    // ✅ UX FIX: Store result to prevent recomposition delay
+                    val isValid = viewModel.validateName()
+                    if (isValid) {
+                        viewModel.saveStepOne()
                         navController.navigate(Screen.OnboardingStats.route)
                     }
                 },
@@ -161,13 +163,13 @@ fun OnboardingNameScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // ✅ PHASE G FIX: Clear session and navigate to Login with cleared backstack
-                        // This prevents Login's back button from looping to Onboarding
+                        // 🔴 CRITICAL SECURITY FIX: Clear ENTIRE back stack
+                        // Previous code kept Getting Started in stack, allowing swipe-back without login
                         coroutineScope.launch {
                             sessionManager.clearSession()
                             showExitDialog = false
                             navController.navigate("login") {
-                                popUpTo("getting_started") { inclusive = false }  // Keep Getting Started in stack
+                                popUpTo(0) { inclusive = true }  // Clear everything - prevent swipe back
                             }
                         }
                     }

@@ -34,7 +34,7 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val state by viewModel.dashboardState.collectAsState()
-    var showAddCalorieSheet by remember { mutableStateOf(false) }
+    // BUGFIX Issue 8: Dialog state moved to ViewModel (other dialogs stay local)
     var showDeleteDialog by remember { mutableStateOf<DailyEntryEntity?>(null) }
     var showEditDialog by remember { mutableStateOf<DailyEntryEntity?>(null) }
     
@@ -53,7 +53,7 @@ fun DashboardScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showAddCalorieSheet = true },
+                onClick = { viewModel.showAddDialog() },  // BUGFIX Issue 8: Use ViewModel
                 containerColor = DarkTurquoise,
                 contentColor = Color.White
             ) {
@@ -331,13 +331,19 @@ fun DashboardScreen(
         }
     }
     
-    // Add Calorie Bottom Sheet
-    if (showAddCalorieSheet) {
+    // BUGFIX Issue 8: Add Calorie Sheet with persistent state from ViewModel
+    if (state.showAddDialog) {
         AddCalorieSheet(
-            onDismiss = { showAddCalorieSheet = false },
+            foodName = state.tempFoodName,
+            calories = state.tempCalories,
+            selectedMealType = state.tempMealType,
+            onFoodNameChange = viewModel::updateTempFoodName,
+            onCaloriesChange = viewModel::updateTempCalories,
+            onMealTypeChange = viewModel::updateTempMealType,
+            onDismiss = { viewModel.hideAddDialog() },
             onSave = { foodName, calories, mealType ->
                 viewModel.addFoodEntry(foodName, calories, mealType)
-                showAddCalorieSheet = false
+                viewModel.clearTempInput()  // Clear after save
             }
         )
     }

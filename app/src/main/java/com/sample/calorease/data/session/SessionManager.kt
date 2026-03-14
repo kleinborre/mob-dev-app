@@ -29,6 +29,18 @@ class SessionManager @Inject constructor(
         val HAS_EVER_LOGGED_IN = booleanPreferencesKey("has_ever_logged_in")
         val LAST_DASHBOARD_MODE = stringPreferencesKey("last_dashboard_mode")  // PHASE 3: "admin" or "user"
         val ACCOUNT_DELETION_SUCCESS = booleanPreferencesKey("account_deletion_success")  // PHASE 3
+        
+        // BUGFIX Issue 7: Last login email persistence
+        val LAST_LOGIN_EMAIL = stringPreferencesKey("last_login_email")
+        
+        // BUGFIX Issue 5: Temporary onboarding data (persists across back navigation)
+        val TEMP_ONBOARDING_AGE = stringPreferencesKey("temp_onboarding_age")
+        val TEMP_ONBOARDING_GENDER = stringPreferencesKey("temp_onboarding_gender")
+        val TEMP_ONBOARDING_HEIGHT = stringPreferencesKey("temp_onboarding_height")
+        val TEMP_ONBOARDING_WEIGHT = stringPreferencesKey("temp_onboarding_weight")
+        val TEMP_ONBOARDING_ACTIVITY = stringPreferencesKey("temp_onboarding_activity")
+        val TEMP_ONBOARDING_TARGET_WEIGHT = stringPreferencesKey("temp_onboarding_target_weight")
+        val TEMP_ONBOARDING_GOAL = stringPreferencesKey("temp_onboarding_goal")
     }
 
     /**
@@ -95,11 +107,19 @@ class SessionManager @Inject constructor(
 
     /**
      * Clear session (logout)
-     * Clears all session data including userId and role
+     * 🟠 CORRECTED: Only preserve HAS_EVER_LOGGED_IN (for onboarding skip)
+     * Dashboard mode is CLEARED on logout (user starts fresh)
      */
     suspend fun clearSession() {
         context.dataStore.edit { preferences ->
+            // 🟠 Only preserve onboarding flag across logout
+            val hasLoggedIn = preferences[PreferencesKeys.HAS_EVER_LOGGED_IN]
+            
+            // Clear all preferences (including dashboard mode!)
             preferences.clear()
+            
+            // 🟠 Restore only the "has ever logged in" flag
+            hasLoggedIn?.let { preferences[PreferencesKeys.HAS_EVER_LOGGED_IN] = it }
         }
     }
 
@@ -189,4 +209,94 @@ class SessionManager @Inject constructor(
             preferences[PreferencesKeys.ACCOUNT_DELETION_SUCCESS] = false
         }
     }
+    
+    // ============================================================================
+    // BUGFIX Issue 7: Last Login Email Persistence
+    // ============================================================================
+    
+    /**
+     * Save last login email (for auto-fill after logout)
+     */
+    suspend fun saveLastLoginEmail(email: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LAST_LOGIN_EMAIL] = email
+        }
+    }
+    
+    /**
+     * Get last login email
+     */
+    suspend fun getLastLoginEmail(): String? {
+        val preferences = context.dataStore.data.first()
+        return preferences[PreferencesKeys.LAST_LOGIN_EMAIL]
+    }
+    
+    // ============================================================================
+    // BUGFIX Issue 5: Temporary Onboarding Data Persistence
+    // ============================================================================
+    
+    /**
+     * Save temporary onboarding step 2 data (persists across back navigation)
+     */
+    suspend fun saveTempOnboardingStep2(age: String, gender: String, height: String, weight: String, activity: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.TEMP_ONBOARDING_AGE] = age
+            preferences[PreferencesKeys.TEMP_ONBOARDING_GENDER] = gender
+            preferences[PreferencesKeys.TEMP_ONBOARDING_HEIGHT] = height
+            preferences[PreferencesKeys.TEMP_ONBOARDING_WEIGHT] = weight
+            preferences[PreferencesKeys.TEMP_ONBOARDING_ACTIVITY] = activity
+        }
+    }
+    
+    /**
+     * Save temporary onboarding step 3 data (persists across back navigation)
+     */
+    suspend fun saveTempOnboardingStep3(targetWeight: String, goal: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.TEMP_ONBOARDING_TARGET_WEIGHT] = targetWeight
+            preferences[PreferencesKeys.TEMP_ONBOARDING_GOAL] = goal
+        }
+    }
+    
+    /**
+     * Get temporary onboarding data
+     */
+    suspend fun getTempOnboardingData(): TempOnboardingData {
+        val preferences = context.dataStore.data.first()
+        return TempOnboardingData(
+            age = preferences[PreferencesKeys.TEMP_ONBOARDING_AGE] ?: "",
+            gender = preferences[PreferencesKeys.TEMP_ONBOARDING_GENDER] ?: "",
+            height = preferences[PreferencesKeys.TEMP_ONBOARDING_HEIGHT] ?: "",
+            weight = preferences[PreferencesKeys.TEMP_ONBOARDING_WEIGHT] ?: "",
+            activity = preferences[PreferencesKeys.TEMP_ONBOARDING_ACTIVITY] ?: "",
+            targetWeight = preferences[PreferencesKeys.TEMP_ONBOARDING_TARGET_WEIGHT] ?: "",
+            goal = preferences[PreferencesKeys.TEMP_ONBOARDING_GOAL] ?: ""
+        )
+    }
+    
+    /**
+     * Clear temporary onboarding data (after completion)
+     */
+    suspend fun clearTempOnboardingData() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(PreferencesKeys.TEMP_ONBOARDING_AGE)
+            preferences.remove(PreferencesKeys.TEMP_ONBOARDING_GENDER)
+            preferences.remove(PreferencesKeys.TEMP_ONBOARDING_HEIGHT)
+            preferences.remove(PreferencesKeys.TEMP_ONBOARDING_WEIGHT)
+            preferences.remove(PreferencesKeys.TEMP_ONBOARDING_ACTIVITY)
+            preferences.remove(PreferencesKeys.TEMP_ONBOARDING_TARGET_WEIGHT)
+            preferences.remove(PreferencesKeys.TEMP_ONBOARDING_GOAL)
+        }
+    }
 }
+
+// Data class for temporary onboarding data
+data class TempOnboardingData(
+    val age: String,
+    val gender: String,
+    val height: String,
+    val weight: String,
+    val activity: String,
+    val targetWeight: String,
+    val goal: String
+)

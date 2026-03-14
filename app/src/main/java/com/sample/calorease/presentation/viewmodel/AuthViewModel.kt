@@ -49,10 +49,13 @@ class AuthViewModel @Inject constructor(
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
     
     fun updateEmail(email: String) {
+        val trimmedEmail = email.trim()
+        Log.d("AuthViewModel", "📧 updateEmail called: input='$email' → trimmed='$trimmedEmail'")
         _authState.value = _authState.value.copy(
-            email = email.trimEnd(),  // Trim trailing whitespace
+            email = trimmedEmail,
             emailError = null
         )
+        Log.d("AuthViewModel", "📧 State updated: email in state='${_authState.value.email}'")
     }
     
     fun updatePassword(password: String) {
@@ -76,13 +79,19 @@ class AuthViewModel @Inject constructor(
         )
     }
     
-    fun login() {
-        val email = _authState.value.email.trim()  // Trim all whitespace for email
-        val password = _authState.value.password.trimEnd()  // Trim trailing whitespace only
+    fun login(email: String = _authState.value.email, password: String = _authState.value.password) {
+        Log.d("AuthViewModel", "🔐 login() called")
+        Log.d("AuthViewModel", "🔐 Email parameter: '$email'")
+        Log.d("AuthViewModel", "🔐 Password length: ${password.length}")
+        
+        // Trim the passed parameters
+        val trimmedEmail = email.trim()
+        val trimmedPassword = password.trimEnd()
+        Log.d("AuthViewModel", "🔐 Email AFTER trim: '$trimmedEmail'")
         
         // Validate
-        val emailError = ValidationUtils.validateEmail(email)
-        val passwordError = ValidationUtils.validatePassword(password)
+        val emailError = ValidationUtils.validateEmail(trimmedEmail)
+        val passwordError = ValidationUtils.validatePassword(trimmedPassword)
         
         if (emailError != null || passwordError != null) {
             _authState.value = _authState.value.copy(
@@ -97,7 +106,7 @@ class AuthViewModel @Inject constructor(
         
         viewModelScope.launch {
             // Check if email exists first for better error messages
-            userRepository.getUserByEmail(email).onSuccess { existingUser ->
+            userRepository.getUserByEmail(trimmedEmail).onSuccess { existingUser ->
                 if (existingUser == null) {
                     // Email doesn't exist
                     _authState.value = _authState.value.copy(
@@ -119,12 +128,15 @@ class AuthViewModel @Inject constructor(
                 }
                 
                 // Email exists and account active, try login
-                userRepository.login(email, password).onSuccess { user ->
+                userRepository.login(trimmedEmail, trimmedPassword).onSuccess { user ->
                     // ✅ FIX: Always allow login - MainViewModel handles onboarding routing
                     // Removed block that prevented login for incomplete onboarding (catch-22 bug)
                     sessionManager.setLoggedIn(user.email)
                     sessionManager.saveUserId(user.userId)
                     sessionManager.saveRole(user.role)
+                    
+                    // BUGFIX Issue 7: Save last login email for persistence after logout
+                    sessionManager.saveLastLoginEmail(user.email)
                     
                     // PHASE 1: Save initial dashboard mode based on role
                     val initialMode = if (user.role == "admin") "admin" else "user"

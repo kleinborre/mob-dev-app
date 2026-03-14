@@ -35,6 +35,10 @@ fun OnboardingStatsScreen(
 ) {
     val state by viewModel.onboardingState.collectAsState()
     
+    // ✅ UX FIX: Track focus to clear "0" placeholder
+    var heightHasFocus by remember { mutableStateOf(false) }
+    var weightHasFocus by remember { mutableStateOf(false) }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -90,7 +94,7 @@ fun OnboardingStatsScreen(
                 isSelected = state.gender == Gender.FEMALE,
                 onClick = { viewModel.updateGender(Gender.FEMALE) },
                 modifier = Modifier.weight(1f),
-                selectedColor = com.sample.calorease.presentation.theme.PastelPink  // Pastel pink for female
+                selectedColor = Color(0xFFC62828)  // Dark red
             )
         }
         
@@ -99,7 +103,10 @@ fun OnboardingStatsScreen(
         // Height
         CalorEaseTextField(
             value = state.height,
-            onValueChange = viewModel::updateHeight,
+            onValueChange = { newValue ->
+                heightHasFocus = newValue.isNotEmpty()
+                viewModel.updateHeight(newValue)
+            },
             label = "Height (cm)",
             placeholder = "e.g., 170",
             keyboardType = KeyboardType.Number,
@@ -112,7 +119,10 @@ fun OnboardingStatsScreen(
         // Weight
         CalorEaseTextField(
             value = state.weight,
-            onValueChange = viewModel::updateWeight,
+            onValueChange = { newValue ->
+                weightHasFocus = newValue.isNotEmpty()
+                viewModel.updateWeight(newValue)
+            },
             label = "Current Weight (kg)",
             placeholder = "e.g., 70",
             keyboardType = KeyboardType.Number,
@@ -165,8 +175,10 @@ fun OnboardingStatsScreen(
             CalorEaseButton(
                 text = "Next",
                 onClick = {
-                    if (viewModel.validateStats()) {
-                        viewModel.saveStepTwo()  // ✅ PHASE 2: Save before navigate
+                    // ✅ UX FIX: Simplified - no recomposition delay
+                    val isValid = viewModel.validateStats()
+                    if (isValid) {
+                        viewModel.saveStepTwo()
                         navController.navigate(Screen.OnboardingGoals.route)
                     }
                 },

@@ -126,12 +126,14 @@ fun OnboardingGoalsScreen(
             CalorEaseButton(
                 text = "Next",
                 onClick = {
-                    if (viewModel.validateGoals()) {
+                    // ✅ UX FIX: Store result to prevent recomposition delay
+                    val isValid = viewModel.validateGoals()
+                    if (isValid) {
                         // ✅ PHASE J FIX: Await saveStepThree before navigation
                         coroutineScope.launch {
-                            viewModel.saveStepThree()  // Suspends until save completes
+                            viewModel.saveStepThree()
                             viewModel.calculateResults()
-                            delay(100)  // Small delay for calculations
+                            delay(100)
                             navController.navigate(Screen.OnboardingResults.route)
                         }
                     }

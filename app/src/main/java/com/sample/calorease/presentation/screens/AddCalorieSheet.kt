@@ -22,18 +22,22 @@ import com.sample.calorease.presentation.theme.Poppins
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddCalorieSheet(
+    foodName: String,
+    calories: String,
+    selectedMealType: String,
+    onFoodNameChange: (String) -> Unit,
+    onCaloriesChange: (String) -> Unit,
+    onMealTypeChange: (String) -> Unit,
     onDismiss: () -> Unit,
     onSave: (String, Int, String) -> Unit
 ) {
-    var foodName by remember { mutableStateOf("") }
-    var calories by remember { mutableStateOf("") }
-    var selectedMealType by remember { mutableStateOf<String?>(null) }
+    // BUGFIX Issue 8: State now comes from ViewModel (persistent)
     var showConfirmation by remember { mutableStateOf(false) }
     
     val isFormValid = foodName.isNotBlank() && 
                      calories.toIntOrNull() != null && 
                      (calories.toIntOrNull() ?: 0) > 0 &&
-                     selectedMealType != null
+                     selectedMealType.isNotBlank()
     
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -59,7 +63,7 @@ fun AddCalorieSheet(
             // Food Name
             CalorEaseTextField(
                 value = foodName,
-                onValueChange = { foodName = it },
+                onValueChange = onFoodNameChange,
                 label = "Food Name",
                 placeholder = "e.g., Grilled Chicken",
                 keyboardType = KeyboardType.Text
@@ -70,7 +74,7 @@ fun AddCalorieSheet(
             // Calories
             CalorEaseTextField(
                 value = calories,
-                onValueChange = { calories = it.filter { char -> char.isDigit() } },
+                onValueChange = { onCaloriesChange(it.filter { char -> char.isDigit() }) },
                 label = "Calories",
                 placeholder = "e.g., 350",
                 keyboardType = KeyboardType.Number
@@ -100,14 +104,14 @@ fun AddCalorieSheet(
                         label = "Breakfast",
                         icon = Icons.Default.BreakfastDining,
                         isSelected = selectedMealType == "Breakfast",
-                        onClick = { selectedMealType = "Breakfast" },
+                        onClick = { onMealTypeChange("Breakfast") },
                         modifier = Modifier.weight(1f)
                     )
                     MealTypeChip(
                         label = "Lunch",
                         icon = Icons.Default.LunchDining,
                         isSelected = selectedMealType == "Lunch",
-                        onClick = { selectedMealType = "Lunch" },
+                        onClick = { onMealTypeChange("Lunch") },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -119,14 +123,14 @@ fun AddCalorieSheet(
                         label = "Dinner",
                         icon = Icons.Default.DinnerDining,
                         isSelected = selectedMealType == "Dinner",
-                        onClick = { selectedMealType = "Dinner" },
+                        onClick = { onMealTypeChange("Dinner") },
                         modifier = Modifier.weight(1f)
                     )
                     MealTypeChip(
                         label = "Snack",
                         icon = Icons.Default.Fastfood,
                         isSelected = selectedMealType == "Snack",
-                        onClick = { selectedMealType = "Snack" },
+                        onClick = { onMealTypeChange("Snack") },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -184,7 +188,7 @@ fun AddCalorieSheet(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onSave(foodName, calories.toInt(), selectedMealType!!)
+                        onSave(foodName, calories.toInt(), selectedMealType)
                         showConfirmation = false
                     }
                 ) {
