@@ -189,7 +189,7 @@ fun AdminSettingsScreen(
             onDismissRequest = { showSignOutConfirm = false },
             title = {
                 Text(
-                    text = "Sign Out",  // PART 3: Removed ⚠️
+                    text = "Sign Out",  // PART 3: Removed 
                     style = MaterialTheme.typography.bodyMedium,  // PART 3: Body size (bold)
                     fontFamily = Poppins,
                     fontWeight = FontWeight.Bold,

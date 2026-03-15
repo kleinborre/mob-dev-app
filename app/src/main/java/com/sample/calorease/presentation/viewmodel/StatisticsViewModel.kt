@@ -25,8 +25,8 @@ data class StatisticsState(
 
 @HiltViewModel
 class StatisticsViewModel @Inject constructor(
-    private val repository: CalorieRepository,  // ✅ Use real repository
-    private val sessionManager: SessionManager   // ✅ Get userId
+    private val repository: CalorieRepository,  // Use real repository
+    private val sessionManager: SessionManager   // Get userId
 ) : ViewModel() {
     
     private val _statisticsState = MutableStateFlow(StatisticsState())
@@ -44,7 +44,7 @@ class StatisticsViewModel @Inject constructor(
                 // Get userId from session
                 val userId = sessionManager.getUserId()
                 if (userId == null) {
-                    android.util.Log.e("StatisticsViewModel", "❌ No userId in session")
+                    android.util.Log.e("StatisticsViewModel", "No userId in session")
                     _statisticsState.value = _statisticsState.value.copy(
                         chartData = emptyList(),
                         isLoading = false
@@ -52,14 +52,14 @@ class StatisticsViewModel @Inject constructor(
                     return@launch
                 }
                 
-                android.util.Log.d("StatisticsViewModel", "📊 Loading weekly data for userId=$userId")
+                android.util.Log.d("StatisticsViewModel", "Loading weekly data for userId=$userId")
                 
                 // Get last 7 days as timestamps (oldest to newest)
                 val last7Days = getLastNDaysTimestamps(7)
                 
-                android.util.Log.d("StatisticsViewModel", "📅 Date range: ${formatTimestamp(last7Days.first())} to ${formatTimestamp(last7Days.last())}")
+                android.util.Log.d("StatisticsViewModel", "Date range: ${formatTimestamp(last7Days.first())} to ${formatTimestamp(last7Days.last())}")
                 
-                // ✅ CRITICAL FIX: Use date range query to get ALL 7 days of data
+                // CRITICAL FIX: Use date range query to get ALL 7 days of data
                 // Previous bug: getDailyEntries(userId, date) only gets ONE specific date
                 val allEntriesResult = repository.getDailyEntriesByDateRange(
                     userId = userId,
@@ -68,7 +68,7 @@ class StatisticsViewModel @Inject constructor(
                 )
                 val allEntries = allEntriesResult.getOrNull() ?: emptyList()
                 
-                android.util.Log.d("StatisticsViewModel", "📦 Total entries fetched: ${allEntries.size}")
+                android.util.Log.d("StatisticsViewModel", "Total entries fetched: ${allEntries.size}")
                 
                 // Group by date, sum calories for each day
                 val chartData = last7Days.map { timestamp ->
@@ -77,7 +77,7 @@ class StatisticsViewModel @Inject constructor(
                     val totalCalories = dayEntries.sumOf { it.calories }
                     
                     val dateStr = formatTimestamp(timestamp)
-                    android.util.Log.d("StatisticsViewModel", "  📅 $dateStr: ${dayEntries.size} entries, $totalCalories cal")
+                    android.util.Log.d("StatisticsViewModel", "  $dateStr: ${dayEntries.size} entries, $totalCalories cal")
                     
                     ChartData(
                         date = dateStr,
@@ -90,9 +90,9 @@ class StatisticsViewModel @Inject constructor(
                     isLoading = false
                 )
                 
-                android.util.Log.d("StatisticsViewModel", "✅ Weekly data loaded: ${chartData.size} days")
+                android.util.Log.d("StatisticsViewModel", "Weekly data loaded: ${chartData.size} days")
             } catch (e: Exception) {
-                android.util.Log.e("StatisticsViewModel", "❌ Error loading weekly data", e)
+                android.util.Log.e("StatisticsViewModel", "Error loading weekly data", e)
                 _statisticsState.value = _statisticsState.value.copy(
                     chartData = emptyList(),
                     isLoading = false
@@ -102,7 +102,7 @@ class StatisticsViewModel @Inject constructor(
     }
     
     fun refreshData() {
-        android.util.Log.d("StatisticsViewModel", "🔄 Refreshing statistics data...")
+        android.util.Log.d("StatisticsViewModel", "Refreshing statistics data...")
         loadWeeklyData()
     }
     

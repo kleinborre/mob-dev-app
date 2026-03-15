@@ -40,10 +40,10 @@ fun DashboardScreen(
     
     // PHASE 1: Mode now saved in AuthViewModel on login
     
-    // ✅ Refresh on composition (works with state restoration disabled)
+    // Refresh on composition (works with state restoration disabled)
     // Only runs once per composition, no flickering
     LaunchedEffect(Unit) {
-        android.util.Log.d("DashboardScreen", "🔄 Screen composed - refreshing...")
+        android.util.Log.d("DashboardScreen", "Screen composed - refreshing...")
         viewModel.refreshData()
     }
     
@@ -80,7 +80,7 @@ fun DashboardScreen(
                     .padding(horizontal = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // ✅ Phase E: Home header matching Settings page
+                // Phase E: Home header matching Settings page
                 item { Spacer(modifier = Modifier.height(16.dp)) }
                 
                 item {
@@ -95,9 +95,9 @@ fun DashboardScreen(
                 
                 item { Spacer(modifier = Modifier.height(4.dp)) }  // PART 4: Minimal gap (was 12dp)
                 
-                // ✅ Welcome Header with capitalized nickname
+                // Welcome Header with capitalized nickname
                 item {
-                    // ✅ Capitalize each word in nickname
+                    // Capitalize each word in nickname
                     val displayName = state.nickname.takeIf { it.isNotBlank() }?.let { nickname ->
                         nickname.split(" ").joinToString(" ") { word ->
                             word.replaceFirstChar { char -> 
@@ -125,7 +125,7 @@ fun DashboardScreen(
                 
                 // Hero Summary Card with Circular Progress and dynamic background
                 item {
-                    // ✅ Dynamic background color based on calorie consumption
+                    // Dynamic background color based on calorie consumption
                     val cardBackgroundColor = if (state.consumedCalories > state.goalCalories) {
                         Color(0xFFE57373) // Red when over goal (better contrast than pink)
                     } else {
@@ -136,7 +136,7 @@ fun DashboardScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = cardBackgroundColor  // ✅ Dynamic color
+                            containerColor = cardBackgroundColor  // Dynamic color
                         )
                     ) {
                         Column(
@@ -193,13 +193,13 @@ fun DashboardScreen(
                                 (state.consumedCalories.toFloat() / state.goalCalories * 100).toInt()
                             } else 0
                             
-                            val (message, emoji) = when {
-                                state.consumedCalories > state.goalCalories -> "Over your daily target" to "⚠️"
-                                percentage < 25 -> "Let's get started!" to "💪"
-                                percentage < 75 -> "You're doing great!" to "🎯"
-                                percentage < 95 -> "Almost there!" to "🔥"
-                                percentage <= 100 -> "Perfect target!" to "✅"
-                                else -> "Over target" to "⚠️"
+                            val message = when {
+                                state.consumedCalories > state.goalCalories -> "Over your daily target"
+                                percentage < 25 -> "Let's get started!"
+                                percentage < 75 -> "You're doing great!"
+                                percentage < 95 -> "Almost there!"
+                                percentage <= 100 -> "Perfect target!"
+                                else -> "Over target"
                             }
                             
                             val messageColor = if (state.consumedCalories > state.goalCalories) {
@@ -209,7 +209,7 @@ fun DashboardScreen(
                             }
                             
                             Text(
-                                text = "$emoji $message",
+                                text = message,
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontFamily = Poppins,
                                 fontWeight = FontWeight.SemiBold,

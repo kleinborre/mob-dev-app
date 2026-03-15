@@ -22,13 +22,13 @@ class LegacyCalorieRepositoryImpl @Inject constructor(
     
     // User Stats Operations (Legacy - uses UserEntity under the hood)
     override suspend fun insertUserStats(userStats: UserStats) {
-        dao.insertOrUpdateUserStats(userStats)  // ✅ FIXED: Use upsert instead of plain insert
-        android.util.Log.d("LegacyRepo", "✅ Inserted/Updated UserStats for userId=${userStats.userId}")
+        dao.insertOrUpdateUserStats(userStats)  // FIXED: Use upsert instead of plain insert
+        android.util.Log.d("LegacyRepo", "Inserted/Updated UserStats for userId=${userStats.userId}")
     }
     
     override suspend fun updateUserStats(userStats: UserStats) {
-        dao.insertOrUpdateUserStats(userStats)  // ✅ CRITICAL FIX: Was stub, now actually saves!
-        android.util.Log.d("LegacyRepo", "✅ Updated UserStats for userId=${userStats.userId}")
+        dao.insertOrUpdateUserStats(userStats)  // CRITICAL FIX: Was stub, now actually saves!
+        android.util.Log.d("LegacyRepo", "Updated UserStats for userId=${userStats.userId}")
     }
     
     override fun getUserStats(): Flow<UserStats?> {
@@ -52,20 +52,20 @@ class LegacyCalorieRepositoryImpl @Inject constructor(
         // Not needed for Phase 2
     }
     
-    // ✅ Onboarding State Persistence
+    // Onboarding State Persistence
     override suspend fun saveOnboardingState(userStats: UserStats) {
         dao.insertOrUpdateUserStats(userStats)
-        android.util.Log.d("LegacyRepo", "✅ Saved onboarding state for userId=${userStats.userId}, step=${userStats.currentOnboardingStep}")
+        android.util.Log.d("LegacyRepo", "Saved onboarding state for userId=${userStats.userId}, step=${userStats.currentOnboardingStep}")
     }
     
     override suspend fun updateOnboardingProgress(userId: Int, step: Int) {
         dao.updateOnboardingProgress(userId, step)
-        android.util.Log.d("LegacyRepo", "✅ Updated onboarding progress: userId=$userId, step=$step")
+        android.util.Log.d("LegacyRepo", "Updated onboarding progress: userId=$userId, step=$step")
     }
     
     override suspend fun markOnboardingComplete(userId: Int) {
         dao.markOnboardingComplete(userId)
-        android.util.Log.d("LegacyRepo", "✅ Marked onboarding complete for userId=$userId")
+        android.util.Log.d("LegacyRepo", "Marked onboarding complete for userId=$userId")
     }
     
     // Daily Entry Operations (Legacy)
@@ -114,6 +114,6 @@ class LegacyCalorieRepositoryImpl @Inject constructor(
     }
     
     override suspend fun deleteAllDailyEntriesForUser(userId: Int) {
-        dao.deleteAllDailyEntriesForUser(userId)  // ✅ Delete user progress
+        dao.deleteAllDailyEntriesForUser(userId)  // Delete user progress
     }
 }

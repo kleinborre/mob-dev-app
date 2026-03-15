@@ -1,4 +1,4 @@
-package com.sample.calorease.presentation.screens
+﻿package com.sample.calorease.presentation.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -33,7 +33,7 @@ fun OnboardingNameScreen(
     val state by viewModel.onboardingState.collectAsState()
     var showExitDialog by remember { mutableStateOf(false) }
     
-    // ✅ Load saved progress when screen opens
+    // Load saved progress when screen opens
     LaunchedEffect(Unit) {
         viewModel.loadProgress()
     }
@@ -129,7 +129,7 @@ fun OnboardingNameScreen(
             CalorEaseButton(
                 text = "Next",
                 onClick = {
-                    // ✅ UX FIX: Store result to prevent recomposition delay
+                    // UX FIX: Store result to prevent recomposition delay
                     val isValid = viewModel.validateName()
                     if (isValid) {
                         viewModel.saveStepOne()
@@ -163,7 +163,7 @@ fun OnboardingNameScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // 🔴 CRITICAL SECURITY FIX: Clear ENTIRE back stack
+                        //  CRITICAL SECURITY FIX: Clear ENTIRE back stack
                         // Previous code kept Getting Started in stack, allowing swipe-back without login
                         coroutineScope.launch {
                             sessionManager.clearSession()

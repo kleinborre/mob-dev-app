@@ -67,14 +67,14 @@ interface CalorieDao {
     
     /**
      * Update or insert user stats (upsert)
-     * ✅ CRITICAL: For onboarding state persistence
+     * CRITICAL: For onboarding state persistence
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateUserStats(userStats: UserStats)
     
     /**
      * Update onboarding progress
-     * ✅ Saves currentOnboardingStep after each step completion
+     * Saves currentOnboardingStep after each step completion
      */
     @Query("UPDATE user_stats SET currentOnboardingStep = :step WHERE userId = :userId")
     suspend fun updateOnboardingProgress(userId: Int, step: Int)
@@ -139,7 +139,7 @@ interface CalorieDao {
     
     /**
      * Get all entries for a user within a date range (for Statistics)
-     * ✅ CRITICAL: Used by StatisticsViewModel to load weekly chart data
+     * CRITICAL: Used by StatisticsViewModel to load weekly chart data
      */
     @Query("SELECT * FROM daily_entries WHERE userId = :userId AND date BETWEEN :startDate AND :endDate ORDER BY date ASC")
     suspend fun getDailyEntriesByDateRangeForUser(userId: Int, startDate: Long, endDate: Long): List<DailyEntryEntity>
@@ -152,7 +152,7 @@ interface CalorieDao {
     
     /**
      * Delete all daily entries for a specific user
-     * ✅ CRITICAL: Used when user changes goal (progress reset)
+     * CRITICAL: Used when user changes goal (progress reset)
      */
     @Query("DELETE FROM daily_entries WHERE userId = :userId")
     suspend fun deleteAllDailyEntriesForUser(userId: Int)

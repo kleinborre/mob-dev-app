@@ -35,7 +35,7 @@ fun OnboardingStatsScreen(
 ) {
     val state by viewModel.onboardingState.collectAsState()
     
-    // ✅ UX FIX: Track focus to clear "0" placeholder
+    // UX FIX: Track focus to clear "0" placeholder
     var heightHasFocus by remember { mutableStateOf(false) }
     var weightHasFocus by remember { mutableStateOf(false) }
     
@@ -43,7 +43,7 @@ fun OnboardingStatsScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp)
-            .verticalScroll(rememberScrollState()),  // ✅ Add scroll to fix visibility
+            .verticalScroll(rememberScrollState()),  // Add scroll to fix visibility
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(40.dp))
@@ -175,7 +175,7 @@ fun OnboardingStatsScreen(
             CalorEaseButton(
                 text = "Next",
                 onClick = {
-                    // ✅ UX FIX: Simplified - no recomposition delay
+                    // UX FIX: Simplified - no recomposition delay
                     val isValid = viewModel.validateStats()
                     if (isValid) {
                         viewModel.saveStepTwo()

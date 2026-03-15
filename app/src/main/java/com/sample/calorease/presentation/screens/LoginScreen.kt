@@ -59,7 +59,7 @@ fun LoginScreen(
         // PHASE 3: Show account deletion success message
         if (sessionManager.wasAccountDeleted()) {
             snackbarHostState.showSnackbar(
-                message = "✅ Account successfully deleted",
+                message = "Account successfully deleted",
                 duration = androidx.compose.material3.SnackbarDuration.Short
             )
             sessionManager.clearAccountDeletionFlag()
@@ -78,7 +78,7 @@ fun LoginScreen(
     // Only show back if: came from Getting Started AND user has never logged in
     val canGoBack = previousRoute == Screen.GettingStarted.route && !hasEverLoggedIn
     
-    // ✅ CRITICAL: Conditional navigation based on destination flags  
+    // CRITICAL: Conditional navigation based on destination flags  
     LaunchedEffect(authState.navigateToDashboard, authState.navigateToOnboarding) {
         when {
             authState.navigateToDashboard -> {
@@ -156,7 +156,7 @@ fun LoginScreen(
             CalorEaseTextField(
                 value = authState.email,
                 onValueChange = { email ->
-                    // ✅ REAL FIX: Lambda wrapper ensures immediate state update
+                    // REAL FIX: Lambda wrapper ensures immediate state update
                     viewModel.updateEmail(email)
                 },
                 label = "Email",
@@ -207,7 +207,7 @@ fun LoginScreen(
             CalorEaseButton(
                 text = "Login",
                 onClick = {
-                    // ✅ REAL FIX: Capture email/password from current authState snapshot
+                    // REAL FIX: Capture email/password from current authState snapshot
                     // This ensures we use the EXACT state at click time, not stale state
                     val currentEmail = authState.email
                     val currentPassword = authState.password

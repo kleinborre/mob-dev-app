@@ -16,7 +16,7 @@ import androidx.room.PrimaryKey
             entity = UserEntity::class,
             parentColumns = ["userId"],
             childColumns = ["userId"],
-            onDelete = ForeignKey.NO_ACTION  // ✅ FIX: Changed from CASCADE - keep food data on logout!
+            onDelete = ForeignKey.NO_ACTION  // FIX: Changed from CASCADE - keep food data on logout!
         )
     ],
     indices = [Index(value = ["userId"])]

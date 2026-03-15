@@ -36,7 +36,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
-        // ✅ FIX: Removed database deletion - it was wiping ALL data on every app start!
+        // FIX: Removed database deletion - it was wiping ALL data on every app start!
         // Database should persist across app restarts for production use
         
         return Room.databaseBuilder(
@@ -58,7 +58,7 @@ object AppModule {
                         
                         val dao = database.calorieDao()
                         createTestUser(dao)
-                        android.util.Log.d("AppModule", "✅ Database created with test user")
+                        android.util.Log.d("AppModule", "Database created with test user")
                     }
                 }
             })
@@ -75,10 +75,10 @@ object AppModule {
                     nickname = "",  // Will use firstName from UserStats
                     role = "USER",
                     isActive = true,
-                    accountStatus = "active",  // ✅ Phase 1: Active account
-                    adminAccess = false,       // ✅ Phase 1: Regular user
-                    isSuperAdmin = false,      // ✅ Phase B: Not a super admin
-                    accountCreated = System.currentTimeMillis(),  // ✅ Phase 1: Creation timestamp
+                    accountStatus = "active",  // Phase 1: Active account
+                    adminAccess = false,       // Phase 1: Regular user
+                    isSuperAdmin = false,      // Phase B: Not a super admin
+                    accountCreated = System.currentTimeMillis(),  // Phase 1: Creation timestamp
                     gender = "Male",
                     height = 175,
                     weight = 75.0,
@@ -92,7 +92,7 @@ object AppModule {
                 
                 dao.insertUser(testUser)
                 
-                // ✅ Phase 3: Create admin user account
+                // Phase 3: Create admin user account
                 val adminUser = UserEntity(
                     email = "admin@calorease.com",
                     password = "Admin123!",
@@ -100,8 +100,8 @@ object AppModule {
                     role = "ADMIN",
                     isActive = true,
                     accountStatus = "active",
-                    adminAccess = true,         // ✅ Admin privileges
-                    isSuperAdmin = true,        // ✅ Phase B: Super admin (cannot be demoted)
+                    adminAccess = true,         // Admin privileges
+                    isSuperAdmin = true,        // Phase B: Super admin (cannot be demoted)
                     accountCreated = System.currentTimeMillis(),
                     gender = "Male",
                     height = 180,
@@ -141,7 +141,7 @@ object AppModule {
                 
                 dao.insertUserStats(testUserStats)
                 
-                // ✅ Phase 2: Create admin user stats
+                // Phase 2: Create admin user stats
                 val adminBirthCalendar = java.util.Calendar.getInstance().apply {
                     set(1989, 5, 20)  // June 20, 1989 (35 years old)
                 }
@@ -166,9 +166,9 @@ object AppModule {
                 
                 dao.insertUserStats(adminUserStats)
                 
-                android.util.Log.d("AppModule", "✅ Test user and Admin user created successfully!")
+                android.util.Log.d("AppModule", "Test user and Admin user created successfully!")
             } catch (e: Exception) {
-                android.util.Log.e("AppModule", "❌ Failed to create test user", e)
+                android.util.Log.e("AppModule", "Failed to create test user", e)
             }
         }
     }

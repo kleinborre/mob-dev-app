@@ -28,7 +28,7 @@ data class UserEntity(
     // Admin Features (Phase 1)
     val accountStatus: String = "active",  // "active" or "deactivated"
     val adminAccess: Boolean = false,       // true = admin, false = regular user
-    val isSuperAdmin: Boolean = false, // ✅ Phase B: Super admin (cannot be demoted)
+    val isSuperAdmin: Boolean = false, // Phase B: Super admin (cannot be demoted)
     val accountCreated: Long = System.currentTimeMillis(), // Timestamp when account created
     
     // Physical Stats

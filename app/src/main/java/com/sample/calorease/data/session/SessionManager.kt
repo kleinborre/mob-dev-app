@@ -51,7 +51,7 @@ class SessionManager @Inject constructor(
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.IS_LOGGED_IN] = true
             preferences[PreferencesKeys.USER_EMAIL] = email
-            preferences[PreferencesKeys.HAS_EVER_LOGGED_IN] = true  // ✅ Mark as returning user
+            preferences[PreferencesKeys.HAS_EVER_LOGGED_IN] = true  // Mark as returning user
         }
     }
 
@@ -107,18 +107,18 @@ class SessionManager @Inject constructor(
 
     /**
      * Clear session (logout)
-     * 🟠 CORRECTED: Only preserve HAS_EVER_LOGGED_IN (for onboarding skip)
+     * CORRECTED: Only preserve HAS_EVER_LOGGED_IN (for onboarding skip)
      * Dashboard mode is CLEARED on logout (user starts fresh)
      */
     suspend fun clearSession() {
         context.dataStore.edit { preferences ->
-            // 🟠 Only preserve onboarding flag across logout
+            // Only preserve onboarding flag across logout
             val hasLoggedIn = preferences[PreferencesKeys.HAS_EVER_LOGGED_IN]
             
             // Clear all preferences (including dashboard mode!)
             preferences.clear()
             
-            // 🟠 Restore only the "has ever logged in" flag
+            // Restore only the "has ever logged in" flag
             hasLoggedIn?.let { preferences[PreferencesKeys.HAS_EVER_LOGGED_IN] = it }
         }
     }

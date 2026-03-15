@@ -53,9 +53,9 @@ fun StatsScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
                     .padding(24.dp)
-                    .verticalScroll(rememberScrollState())  // ✅ Phase H: Landscape support
+                    .verticalScroll(rememberScrollState())  // Phase H: Landscape support
             ) {
-                // ✅ Phase E: Header matching Settings page
+                // Phase E: Header matching Settings page
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Text(
@@ -133,16 +133,16 @@ fun StatsScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     StatCard(
-                        label = "Average Daily Intake",  // ✅ Phase F: More descriptive
-                        value = "${state.weekData.map { it.calories }.average().toInt()} kcal",  // ✅ Phase F: Add "kcal" unit
-                        description = "Based on last 7 days",  // ✅ Phase F: Add context
+                        label = "Average Daily Intake",  // Phase F: More descriptive
+                        value = "${state.weekData.map { it.calories }.average().toInt()} kcal",  // Phase F: Add "kcal" unit
+                        description = "Based on last 7 days",  // Phase F: Add context
                         modifier = Modifier.weight(1f)
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     StatCard(
                         label = "Daily Goal",
-                        value = "${state.dailyGoal} kcal",  // ✅ Phase F: Add "kcal" unit
-                        description = "Your target intake",  // ✅ Phase F: Add context
+                        value = "${state.dailyGoal} kcal",  // Phase F: Add "kcal" unit
+                        description = "Your target intake",  // Phase F: Add context
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -186,7 +186,7 @@ fun CalorieBarChart(
                 
                 val yScale = chartHeight / maxValue
                 
-                // ✅ Phase F: Draw horizontal grid lines for better readability
+                // Phase F: Draw horizontal grid lines for better readability
                 val gridLineCount = 4
                 val gridColor = Color.Gray.copy(alpha = 0.2f)
                 for (i in 0..gridLineCount) {
@@ -226,7 +226,7 @@ fun CalorieBarChart(
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(8f, 8f)
                     )
                     
-                    // ✅ Phase F: Draw value label on top of bar
+                    // Phase F: Draw value label on top of bar
                     if (value > 0) {
                         drawContext.canvas.nativeCanvas.apply {
                             val paint = android.graphics.Paint().apply {

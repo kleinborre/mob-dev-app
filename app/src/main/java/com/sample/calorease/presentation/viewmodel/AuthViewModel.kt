@@ -1,4 +1,4 @@
-package com.sample.calorease.presentation.viewmodel
+﻿package com.sample.calorease.presentation.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -32,7 +32,7 @@ data class AuthState(
     val isLoading: Boolean = false,
     val isLoginSuccess: Boolean = false,
     val isSignUpSuccess: Boolean = false,
-    // ✅ NEW: Navigation destination flags
+    // Navigation destination flags
     val navigateToDashboard: Boolean = false,
     val navigateToOnboarding: Boolean = false
 )
@@ -50,12 +50,12 @@ class AuthViewModel @Inject constructor(
     
     fun updateEmail(email: String) {
         val trimmedEmail = email.trim()
-        Log.d("AuthViewModel", "📧 updateEmail called: input='$email' → trimmed='$trimmedEmail'")
+        Log.d("AuthViewModel", "updateEmail called: input='$email', trimmed='$trimmedEmail'")
         _authState.value = _authState.value.copy(
             email = trimmedEmail,
             emailError = null
         )
-        Log.d("AuthViewModel", "📧 State updated: email in state='${_authState.value.email}'")
+        Log.d("AuthViewModel", "State updated: email='${_authState.value.email}'")
     }
     
     fun updatePassword(password: String) {
@@ -80,14 +80,14 @@ class AuthViewModel @Inject constructor(
     }
     
     fun login(email: String = _authState.value.email, password: String = _authState.value.password) {
-        Log.d("AuthViewModel", "🔐 login() called")
-        Log.d("AuthViewModel", "🔐 Email parameter: '$email'")
-        Log.d("AuthViewModel", "🔐 Password length: ${password.length}")
+        Log.d("AuthViewModel", "login() called")
+        Log.d("AuthViewModel", "Email parameter: '$email'")
+        Log.d("AuthViewModel", "Password length: ${password.length}")
         
         // Trim the passed parameters
         val trimmedEmail = email.trim()
         val trimmedPassword = password.trimEnd()
-        Log.d("AuthViewModel", "🔐 Email AFTER trim: '$trimmedEmail'")
+        Log.d("AuthViewModel", "Email after trim: '$trimmedEmail'")
         
         // Validate
         val emailError = ValidationUtils.validateEmail(trimmedEmail)
@@ -117,7 +117,7 @@ class AuthViewModel @Inject constructor(
                     return@launch
                 }
                 
-                // ✅ Phase 3: Check if account is deactivated
+                // Phase 3: Check if account is deactivated
                 if (existingUser.accountStatus == "deactivated") {
                     _authState.value = _authState.value.copy(
                         isLoading = false,
@@ -129,7 +129,7 @@ class AuthViewModel @Inject constructor(
                 
                 // Email exists and account active, try login
                 userRepository.login(trimmedEmail, trimmedPassword).onSuccess { user ->
-                    // ✅ FIX: Always allow login - MainViewModel handles onboarding routing
+                    // FIX: Always allow login - MainViewModel handles onboarding routing
                     // Removed block that prevented login for incomplete onboarding (catch-22 bug)
                     sessionManager.setLoggedIn(user.email)
                     sessionManager.saveUserId(user.userId)
@@ -141,9 +141,9 @@ class AuthViewModel @Inject constructor(
                     // PHASE 1: Save initial dashboard mode based on role
                     val initialMode = if (user.role == "admin") "admin" else "user"
                     sessionManager.saveLastDashboardMode(initialMode)
-                    Log.d("AuthViewModel", "🔒 Saved initial lastDashboardMode=$initialMode (role=${user.role})")
+                    Log.d("AuthViewModel", " Saved initial lastDashboardMode=$initialMode (role=${user.role})")
                     
-                    // ✅ CRITICAL: Check onboarding to determine destination
+                    // CRITICAL: Check onboarding to determine destination
                     val userStats = legacyRepository.getUserStats(user.userId)
                     val onboardingCompleted = userStats?.onboardingCompleted ?: false
                     
@@ -153,7 +153,7 @@ class AuthViewModel @Inject constructor(
                         navigateToDashboard = onboardingCompleted,
                         navigateToOnboarding = !onboardingCompleted
                     )
-                    Log.d("AuthViewModel", "✅ Login successful for user: ${user.nickname} (userId=${user.userId}, onboarding=$onboardingCompleted)")
+                    Log.d("AuthViewModel", "Login successful for user: ${user.nickname} (userId=${user.userId}, onboarding=$onboardingCompleted)")
                 }.onFailure { error ->
                     // Login failed - likely wrong password
                     _authState.value = _authState.value.copy(
@@ -248,7 +248,7 @@ class AuthViewModel @Inject constructor(
                 val result = userRepository.registerUser(newUser)
                 
                 result.onSuccess { userId ->
-                    // ✅ CRITICAL FIX: Don't create default user_stats here!
+                    // CRITICAL FIX: Don't create default user_stats here!
                     // user_stats will ONLY be created when onboarding completes
                     // This prevents wrong gender (MALE) showing instead of user's selection
                     
@@ -287,7 +287,7 @@ class AuthViewModel @Inject constructor(
         _authState.value = _authState.value.copy(
             isLoginSuccess = false,
             isSignUpSuccess = false,
-            navigateToDashboard = false,  // ✅ Clear nav flags
+            navigateToDashboard = false,  // Clear nav flags
             navigateToOnboarding = false
         )
     }

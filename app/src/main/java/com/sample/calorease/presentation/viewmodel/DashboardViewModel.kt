@@ -41,7 +41,7 @@ class DashboardViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val sessionManager: SessionManager,
     private val calculatorUseCase: CalculatorUseCase,
-    private val legacyRepository: com.sample.calorease.domain.repository.LegacyCalorieRepository  // ✅ NEW: Load user_stats
+    private val legacyRepository: com.sample.calorease.domain.repository.LegacyCalorieRepository  // NEW: Load user_stats
 ) : ViewModel() {
     
     private val _dashboardState = MutableStateFlow(DashboardState())
@@ -65,7 +65,7 @@ class DashboardViewModel @Inject constructor(
                     return@launch
                 }
                 
-                // ✅ CRITICAL FIX: Load from user_stats instead of users  
+                // CRITICAL FIX: Load from user_stats instead of users  
                 // Onboarding saves to user_stats, so we need to load from there
                 val userStats = legacyRepository.getUserStats(userId)
                 
@@ -90,7 +90,7 @@ class DashboardViewModel @Inject constructor(
                 val totalCaloriesResult = calorieRepository.getTotalCalories(userId, todayTimestamp)
                 val consumed = totalCaloriesResult.getOrNull() ?: 0
                 
-                // ✅ CRITICAL FIX: Use goalCalories from user_stats (from onboarding)
+                // CRITICAL FIX: Use goalCalories from user_stats (from onboarding)
                 // Don't recalculate - use what was saved during onboarding
                 val dailyGoal = userStats?.goalCalories?.toInt() ?: 0
                 
@@ -104,8 +104,8 @@ class DashboardViewModel @Inject constructor(
                 _dashboardState.value = DashboardState(
                     user = user,
                     foodEntries = entries,
-                    nickname = userStats?.nickname ?: userStats?.firstName ?: "User",  // ✅ Use nickname from user_stats
-                    goalCalories = dailyGoal,  // ✅ From onboarding
+                    nickname = userStats?.nickname ?: userStats?.firstName ?: "User",  // Use nickname from user_stats
+                    goalCalories = dailyGoal,  // From onboarding
                     consumedCalories = consumed,
                     remainingCalories = remaining,
                     progress = progress,

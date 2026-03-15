@@ -139,7 +139,7 @@ fun AdminStatsScreen(
                     )
                 }
                 
-                // ✅ Phase A: Removed "Manage Users" button - now on bottom nav
+                // Phase A: Removed "Manage Users" button - now on bottom nav
             }
         }
     }

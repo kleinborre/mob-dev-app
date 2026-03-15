@@ -38,10 +38,10 @@ fun StatisticsScreen(
 ) {
     val state by viewModel.statisticsState.collectAsState()
     
-    // ✅ Refresh on composition (works with state restoration disabled)
+    // Refresh on composition (works with state restoration disabled)
     // Only runs once per composition, no flickering
     LaunchedEffect(Unit) {
-        android.util.Log.d("StatisticsScreen", "🔄 Screen composed - refreshing...")
+        android.util.Log.d("StatisticsScreen", "Screen composed - refreshing...")
         viewModel.refreshData()
     }
     

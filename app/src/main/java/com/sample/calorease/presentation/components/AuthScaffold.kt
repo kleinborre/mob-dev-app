@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun AuthScaffold(
     title: String = "",
-    onBackClick: (() -> Unit)? = null,  // ✅ Phase 2: Made nullable to support hiding back button
+    onBackClick: (() -> Unit)? = null,  // Phase 2: Made nullable to support hiding back button
     showBackButton: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
@@ -34,7 +34,7 @@ fun AuthScaffold(
                     }
                 },
                 navigationIcon = {
-                    // ✅ Phase 2: Only show back button if onBackClick is provided
+                    // Phase 2: Only show back button if onBackClick is provided
                     if (showBackButton && onBackClick != null) {
                         IconButton(onClick = onBackClick) {
                             Icon(

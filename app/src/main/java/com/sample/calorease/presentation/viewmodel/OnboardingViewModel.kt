@@ -1,4 +1,4 @@
-package com.sample.calorease.presentation.viewmodel
+﻿package com.sample.calorease.presentation.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -65,7 +65,7 @@ class OnboardingViewModel @Inject constructor(
     val onboardingState: StateFlow<OnboardingState> = _onboardingState.asStateFlow()
     
     init {
-        // ✅ CRITICAL: Load existing onboarding state if resuming
+        // CRITICAL: Load existing onboarding state if resuming
         loadExistingState()
     }
     
@@ -75,7 +75,7 @@ class OnboardingViewModel @Inject constructor(
                 val userId = sessionManager.getUserId() ?: return@launch
                 val stats = repository.getUserStats(userId) ?: return@launch
                 
-                Log.d("OnboardingVM", "✅ Loaded existing state: step=${stats.currentOnboardingStep}")
+                Log.d("OnboardingVM", "Loaded existing state: step=${stats.currentOnboardingStep}")
                 
                 // Restore state from database
                 _onboardingState.value = _onboardingState.value.copy(
@@ -90,7 +90,7 @@ class OnboardingViewModel @Inject constructor(
                     targetWeight = stats.targetWeightKg.toString(),
                     weightGoal = stats.weightGoal,
                     
-                    // ✅ STEP 4 FIX: Restore calculated health metrics from database
+                    // STEP 4 FIX: Restore calculated health metrics from database
                     bmiValue = stats.bmiValue,
                     bmiStatus = stats.bmiStatus,
                     idealWeight = stats.idealWeight,
@@ -147,7 +147,7 @@ class OnboardingViewModel @Inject constructor(
     }
     
     fun updateHeight(height: String) {
-        // ✅ UX FIX: Auto-clear "0" when user starts typing
+        // UX FIX: Auto-clear "0" when user starts typing
         val cleanValue = if (_onboardingState.value.height == "0" && height.isNotEmpty() && height != "0") {
             height.replace("0", "") // Remove the 0
         } else {
@@ -172,7 +172,7 @@ class OnboardingViewModel @Inject constructor(
     }
     
     fun updateWeight(weight: String) {
-        // ✅ UX FIX: Auto-clear "0" when user starts typing
+        // UX FIX: Auto-clear "0" when user starts typing
         val cleanValue = if (_onboardingState.value.weight == "0" && weight.isNotEmpty() && weight != "0") {
             weight.replace("0", "") // Remove the 0
         } else {
@@ -300,19 +300,19 @@ class OnboardingViewModel @Inject constructor(
         }
     }
     
-    // ✅ PHASE 2: Progressive save after Step 1
+    // PHASE 2: Progressive save after Step 1
     fun saveStepOne() {
         viewModelScope.launch {
             try {
-                android.util.Log.d("OnboardingVM", "🔄 saveStepOne() STARTED")
+                android.util.Log.d("OnboardingVM", "saveStepOne() STARTED")
                 val userId = sessionManager.getUserId()
                 if (userId == null) {
-                    android.util.Log.e("OnboardingVM", "❌ saveStepOne() FAILED: No userId in session")
+                    android.util.Log.e("OnboardingVM", "saveStepOne() FAILED: No userId in session")
                     return@launch
                 }
                 
                 val state = _onboardingState.value
-                android.util.Log.d("OnboardingVM", "📝 Step 1 data: firstName=${state.firstName}, lastName=${state.lastName}, nickname=${state.nickname}")
+                android.util.Log.d("OnboardingVM", " Step 1 data: firstName=${state.firstName}, lastName=${state.lastName}, nickname=${state.nickname}")
                 
                 val userStats = UserStats(
                     userId = userId,
@@ -333,14 +333,14 @@ class OnboardingViewModel @Inject constructor(
                 )
                 
                 repository.saveOnboardingState(userStats)
-                android.util.Log.d("OnboardingVM", "✅ Step 1 SAVED successfully for userId=$userId")
+                android.util.Log.d("OnboardingVM", "Step 1 SAVED successfully for userId=$userId")
             } catch (e: Exception) {
-                android.util.Log.e("OnboardingVM", "❌ saveStepOne() EXCEPTION", e)
+                android.util.Log.e("OnboardingVM", "saveStepOne() EXCEPTION", e)
             }
         }
     }
     
-    // ✅ PHASE 2: Progressive save after Step 2
+    // PHASE 2: Progressive save after Step 2
     fun saveStepTwo() {
         viewModelScope.launch {
             val userId = sessionManager.getUserId() ?: return@launch
@@ -355,7 +355,7 @@ class OnboardingViewModel @Inject constructor(
                 gender = state.gender,
                 heightCm = state.height.toDoubleOrNull() ?: 0.0,
                 weightKg = state.weight.toDoubleOrNull() ?: 0.0,
-                age = state.age.toIntOrNull() ?: 0,  // ✅ FIX: Int not Double
+                age = state.age.toIntOrNull() ?: 0,  // FIX: Int not Double
                 birthday = state.birthday,
                 activityLevel = state.activityLevel,
                 weightGoal = WeightGoal.MAINTAIN,
@@ -366,27 +366,27 @@ class OnboardingViewModel @Inject constructor(
             )
             
             repository.saveOnboardingState(userStats)
-            android.util.Log.d("OnboardingVM", "✅ Step 2 saved")
+            android.util.Log.d("OnboardingVM", "Step 2 saved")
         }
     }
     
-    // ✅ PHASE 2: Progressive save after Step 3
-    // ✅ PHASE J FIX: Made suspend function to ensure completion before navigation
+    // PHASE 2: Progressive save after Step 3
+    // PHASE J FIX: Made suspend function to ensure completion before navigation
     suspend fun saveStepThree() {
         try {
-            android.util.Log.d("OnboardingVM", "🔄 saveStepThree() STARTED")
+            android.util.Log.d("OnboardingVM", "saveStepThree() STARTED")
             val userId = sessionManager.getUserId()
             if (userId == null) {
-                android.util.Log.e("OnboardingVM", "❌ saveStepThree() FAILED: No userId in session")
+                android.util.Log.e("OnboardingVM", "saveStepThree() FAILED: No userId in session")
                 return
             }
             
             val state = _onboardingState.value
-            android.util.Log.d("OnboardingVM", "📝 Step 3 data: targetWeight=${state.targetWeight}, weightGoal=${state.weightGoal}")
+            android.util.Log.d("OnboardingVM", " Step 3 data: targetWeight=${state.targetWeight}, weightGoal=${state.weightGoal}")
             
             val existing = repository.getUserStats(userId)
             if (existing == null) {
-                android.util.Log.e("OnboardingVM", "❌ saveStepThree() FAILED: No existing user_stats found")
+                android.util.Log.e("OnboardingVM", "saveStepThree() FAILED: No existing user_stats found")
                 return
             }
             
@@ -397,22 +397,22 @@ class OnboardingViewModel @Inject constructor(
             )
             
             repository.saveOnboardingState(userStats)
-            android.util.Log.d("OnboardingVM", "✅ Step 3 SAVED successfully for userId=$userId")
+            android.util.Log.d("OnboardingVM", "Step 3 SAVED successfully for userId=$userId")
         } catch (e: Exception) {
-            android.util.Log.e("OnboardingVM", "❌ saveStepThree() EXCEPTION", e)
+            android.util.Log.e("OnboardingVM", "saveStepThree() EXCEPTION", e)
         }
     }
     
     // Step 4: Calculate results
     fun calculateResults() {
         val state = _onboardingState.value
-        // ✅ REMOVED: if (!validateStats() || !validateGoals()) return
+        // REMOVED: if (!validateStats() || !validateGoals()) return
         // This was preventing calculations from running!
         
-        Log.d("OnboardingVM", "📊 ============================")
-        Log.d("OnboardingVM", "📊 CALCULATING HEALTH METRICS")
-        Log.d("OnboardingVM", "📊 ============================")
-        Log.d("OnboardingVM", "📊 Input Data:")
+        Log.d("OnboardingVM", " ============================")
+        Log.d("OnboardingVM", " CALCULATING HEALTH METRICS")
+        Log.d("OnboardingVM", " ============================")
+        Log.d("OnboardingVM", " Input Data:")
         Log.d("OnboardingVM", "  - Height: ${state.height} cm (raw string)")
         Log.d("OnboardingVM", "  - Weight: ${state.weight} kg (raw string)")
         Log.d("OnboardingVM", "  - Age: ${state.age} years (raw string)")
@@ -422,31 +422,31 @@ class OnboardingViewModel @Inject constructor(
         Log.d("OnboardingVM", "  - Weight Goal: ${state.weightGoal}")
         
         try {
-            // ✅ DEFENSIVE PARSING: Handle empty strings with defaults
+            // DEFENSIVE PARSING: Handle empty strings with defaults
             val heightCm = state.height.toDoubleOrNull() ?: run {
-                Log.w("OnboardingVM", "⚠️ Height is empty or invalid, using minimum 0.1")
+                Log.w("OnboardingVM", " Height is empty or invalid, using minimum 0.1")
                 0.1  // Avoid division by zero
             }
             val weightKg = state.weight.toDoubleOrNull() ?: run {
-                Log.w("OnboardingVM", "⚠️ Weight is empty or invalid, using minimum 0.1")
+                Log.w("OnboardingVM", " Weight is empty or invalid, using minimum 0.1")
                 0.1
             }
             val ageYears = state.age.toIntOrNull() ?: run {
-                Log.w("OnboardingVM", "⚠️ Age is empty or invalid, using minimum 1")
+                Log.w("OnboardingVM", " Age is empty or invalid, using minimum 1")
                 1
             }
             val targetWeightKg = state.targetWeight.toDoubleOrNull() ?: run {
-                Log.w("OnboardingVM", "⚠️ Target weight is empty or invalid, using weight")
+                Log.w("OnboardingVM", " Target weight is empty or invalid, using weight")
                 weightKg
             }
             
             // Validate non-zero values
             if (heightCm <= 0 || weightKg <= 0 || ageYears <= 0) {
-                Log.e("OnboardingVM", "❌ Invalid values after parsing: height=$heightCm, weight=$weightKg, age=$ageYears")
+                Log.e("OnboardingVM", "Invalid values after parsing: height=$heightCm, weight=$weightKg, age=$ageYears")
                 return
             }
             
-            Log.d("OnboardingVM", "📊 Parsed Values:")
+            Log.d("OnboardingVM", "Parsed Values:")
             Log.d("OnboardingVM", "  - Height: $heightCm cm")
             Log.d("OnboardingVM", "  - Weight: $weightKg kg")
             Log.d("OnboardingVM", "  - Age: $ageYears years")
@@ -454,13 +454,13 @@ class OnboardingViewModel @Inject constructor(
             
             // Calculate BMI
             val bmiResult = calculatorUseCase.calculateBmi(weightKg, heightCm)
-            Log.d("OnboardingVM", "📊 BMI Calculation:")
+            Log.d("OnboardingVM", "BMI Calculation:")
             Log.d("OnboardingVM", "  - BMI Value: ${bmiResult.bmi}")
             Log.d("OnboardingVM", "  - BMI Status: ${bmiResult.status}")
             
             // Calculate Ideal Weight (recommendation based on healthy BMI)
             val idealWeight = calculatorUseCase.calculateIdealWeight(heightCm)
-            Log.d("OnboardingVM", "📊 Ideal Weight: $idealWeight kg")
+            Log.d("OnboardingVM", " Ideal Weight: $idealWeight kg")
             
             // Calculate BMR
             val bmr = calculatorUseCase.calculateBmr(
@@ -469,15 +469,15 @@ class OnboardingViewModel @Inject constructor(
                 age = ageYears,
                 gender = state.gender
             )
-            Log.d("OnboardingVM", "📊 BMR: $bmr cal/day")
+            Log.d("OnboardingVM", " BMR: $bmr cal/day")
             
             // Calculate TDEE
             val tdee = calculatorUseCase.calculateTdee(bmr, state.activityLevel)
-            Log.d("OnboardingVM", "📊 TDEE: $tdee cal/day")
+            Log.d("OnboardingVM", " TDEE: $tdee cal/day")
             
             // Calculate Goal Calories
             val goalCalories = calculatorUseCase.calculateGoalCalories(tdee, state.weightGoal)
-            Log.d("OnboardingVM", "📊 Goal Calories: $goalCalories cal/day")
+            Log.d("OnboardingVM", " Goal Calories: $goalCalories cal/day")
             
             // Update state
             _onboardingState.value = state.copy(
@@ -489,10 +489,10 @@ class OnboardingViewModel @Inject constructor(
                 goalCalories = goalCalories
             )
             
-            // ✅ PHASE C FIX #4: Confirm state was updated
+            // PHASE C FIX #4: Confirm state was updated
             val updatedState = _onboardingState.value
-            Log.d("OnboardingVM", "✅ STATE UPDATED SUCCESSFULLY!")
-            Log.d("OnboardingVM", "📊 Final State Values:")
+            Log.d("OnboardingVM", "STATE UPDATED SUCCESSFULLY!")
+            Log.d("OnboardingVM", " Final State Values:")
             Log.d("OnboardingVM", "  - bmiValue: ${updatedState.bmiValue}")
             Log.d("OnboardingVM", "  - bmiStatus: ${updatedState.bmiStatus}")
             Log.d("OnboardingVM", "  - idealWeight: ${updatedState.idealWeight}")
@@ -500,20 +500,20 @@ class OnboardingViewModel @Inject constructor(
             Log.d("OnboardingVM", "  - tdee: ${updatedState.tdee}")
             Log.d("OnboardingVM", "  - goalCalories: ${updatedState.goalCalories}")
             
-            Log.d("OnboardingVM", "✅ State updated successfully!")
-            Log.d("OnboardingVM", "📊 Final State Values:")
+            Log.d("OnboardingVM", "State updated successfully!")
+            Log.d("OnboardingVM", " Final State Values:")
             Log.d("OnboardingVM", "  - bmiValue: ${_onboardingState.value.bmiValue}")
             Log.d("OnboardingVM", "  - bmr: ${_onboardingState.value.bmr}")
             Log.d("OnboardingVM", "  - tdee: ${_onboardingState.value.tdee}")
             Log.d("OnboardingVM", "  - goalCalories: ${_onboardingState.value.goalCalories}")
-            Log.d("OnboardingVM", "📊 ============================")
+            Log.d("OnboardingVM", " ============================")
         } catch (e: NumberFormatException) {
-            Log.e("OnboardingVM", "❌ NUMBER FORMAT ERROR in calculateResults", e)
+            Log.e("OnboardingVM", "NUMBER FORMAT ERROR in calculateResults", e)
             Log.e("OnboardingVM", "  - Height: '${state.height}' (${state.height.toDoubleOrNull()})")
             Log.e("OnboardingVM", "  - Weight: '${state.weight}' (${state.weight.toDoubleOrNull()})")
             Log.e("OnboardingVM", "  - Age: '${state.age}' (${state.age.toIntOrNull()})")
         } catch (e: Exception) {
-            Log.e("OnboardingVM", "❌ CALCULATION ERROR", e)
+            Log.e("OnboardingVM", "CALCULATION ERROR", e)
             Log.e("OnboardingVM", "Error message: ${e.message}")
             e.printStackTrace()
         }
@@ -532,15 +532,15 @@ class OnboardingViewModel @Inject constructor(
                 
                 if (userId == 0) {
                     _onboardingState.value = state.copy(isLoading = false)
-                    Log.e("OnboardingViewModel", "❌ No user ID in session! Cannot save onboarding data.")
+                    Log.e("OnboardingViewModel", "No user ID in session! Cannot save onboarding data.")
                     return@launch
                 }
                 
-                Log.d("OnboardingViewModel", "💾 Saving onboarding data for userId=$userId")
+                Log.d("OnboardingViewModel", " Saving onboarding data for userId=$userId")
                 Log.d("OnboardingViewModel", "Data: ${state.firstName} ${state.lastName}, age=${state.age}, goalCal=${state.goalCalories}")
                 
                 val userStats = UserStats(
-                    userId = userId,  // ✅ Use actual user ID from session, links to UserEntity
+                    userId = userId,  // Use actual user ID from session, links to UserEntity
                     firstName = state.firstName,
                     lastName = state.lastName,
                     nickname = state.nickname.takeIf { it.isNotBlank() },  // Save only if not blank
@@ -554,7 +554,7 @@ class OnboardingViewModel @Inject constructor(
                     weightGoal = state.weightGoal,
                     goalCalories = state.goalCalories,
                     
-                    // ✅ STEP 4 FIX: Save calculated health metrics to database
+                    // STEP 4 FIX: Save calculated health metrics to database
                     bmiValue = state.bmiValue,
                     bmiStatus = state.bmiStatus,
                     idealWeight = state.idealWeight,
@@ -572,13 +572,13 @@ class OnboardingViewModel @Inject constructor(
                     isSaveSuccess = true
                 )
                 
-                Log.d("OnboardingViewModel", "✅ Onboarding data saved successfully for userId=$userId (${state.firstName} ${state.lastName})")
+                Log.d("OnboardingViewModel", "Onboarding data saved successfully for userId=$userId (${state.firstName} ${state.lastName})")
             } catch (e: Exception) {
                 _onboardingState.value = _onboardingState.value.copy(
                     isLoading = false,
                     isSaveSuccess = false
                 )
-                Log.e("OnboardingViewModel", "❌ CRASH: Error saving onboarding data", e)
+                Log.e("OnboardingViewModel", "CRASH: Error saving onboarding data", e)
                 Log.e("OnboardingViewModel", "Error message: ${e.message}")
                 Log.e("OnboardingViewModel", "Error cause: ${e.cause}")
                 e.printStackTrace()
@@ -590,12 +590,12 @@ class OnboardingViewModel @Inject constructor(
         _onboardingState.value = _onboardingState.value.copy(isSaveSuccess = false)
     }
     
-    // ✅ NEW: Load saved onboarding progress for incomplete users
+    // NEW: Load saved onboarding progress for incomplete users
     fun loadProgress() {
         viewModelScope.launch {
             val userId = sessionManager.getUserId() ?: return@launch
             
-            android.util.Log.d("OnboardingVM", "🔍 Loading saved progress for userId=$userId")
+            android.util.Log.d("OnboardingVM", " Loading saved progress for userId=$userId")
             
             val savedStats = repository.getUserStats(userId)
             
@@ -604,7 +604,7 @@ class OnboardingViewModel @Inject constructor(
                 _onboardingState.value = OnboardingState(
                     firstName = savedStats.firstName,
                     lastName = savedStats.lastName,
-                    nickname = savedStats.nickname ?: "",  // ✅ Handle nullable
+                    nickname = savedStats.nickname ?: "",  // Handle nullable
                     gender = savedStats.gender,
                     height = if (savedStats.heightCm > 0) savedStats.heightCm.toInt().toString() else "0",
                     weight = if (savedStats.weightKg > 0) savedStats.weightKg.toInt().toString() else "0",
@@ -621,13 +621,13 @@ class OnboardingViewModel @Inject constructor(
                     isSaveSuccess = false
                 )
                 
-                android.util.Log.d("OnboardingVM", "✅ Progress restored: ${savedStats.firstName} ${savedStats.lastName}")
+                android.util.Log.d("OnboardingVM", "Progress restored: ${savedStats.firstName} ${savedStats.lastName}")
                 android.util.Log.d("OnboardingVM", "   Height: ${savedStats.heightCm}, Weight: ${savedStats.weightKg}")
                 
-                // ✅ CRITICAL FIX: Trigger calculations after loading saved data
+                // CRITICAL FIX: Trigger calculations after loading saved data
                 // This ensures Step 4 has values when navigating from saved progress
                 if (savedStats.heightCm > 0 && savedStats.weightKg > 0 && savedStats.age > 0) {
-                    android.util.Log.d("OnboardingVM", "🔄 Triggering calculations with loaded data...")
+                    android.util.Log.d("OnboardingVM", "Triggering calculations with loaded data...")
                     calculateResults()
                 }
             } else {

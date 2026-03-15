@@ -195,7 +195,7 @@ fun SettingsScreen(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // ✅ Phase 4: Admin Mode Button (only for admin users)
+                // Phase 4: Admin Mode Button (only for admin users)
                 if (state.adminAccess) {
                     CalorEaseCard {
                         Column(modifier = Modifier.fillMaxWidth()) {
@@ -228,7 +228,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
                 
-                // ✅ Phase G: Account Actions Card (Edit Weight, Change Goal, Sign Out)
+                // Phase G: Account Actions Card (Edit Weight, Change Goal, Sign Out)
                 CalorEaseCard {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
@@ -262,14 +262,14 @@ fun SettingsScreen(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // ✅ Phase G: Danger Zone Card (separate)
+                // Phase G: Danger Zone Card (separate)
                 CalorEaseCard {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "Danger Zone",  // PHASE 5: Removed ⚠️ icon
+                            text = "Danger Zone",  // PHASE 5: Removed  icon
                             style = MaterialTheme.typography.titleMedium,
                             fontFamily = Poppins,
                             fontWeight = FontWeight.Bold,
@@ -300,7 +300,7 @@ fun SettingsScreen(
             onDismissRequest = viewModel::hideEditWeightDialog,
             title = {
                 Text(
-                    text = "Update Weight",  // PART 3: Removed ⚠️
+                    text = "Update Weight",  // PART 3: Removed 
                     style = MaterialTheme.typography.bodyMedium,  // PART 3: Body size (bold)
                     fontFamily = Poppins,
                     fontWeight = FontWeight.Bold
@@ -326,7 +326,7 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = viewModel::requestWeightChange) {  // ✅ Show confirmation first
+                TextButton(onClick = viewModel::requestWeightChange) {  // Show confirmation first
                     Text("Continue", fontFamily = Poppins, color = DarkTurquoise)
                 }
             },
@@ -338,13 +338,13 @@ fun SettingsScreen(
         )
     }
     
-    // ✅ Edit Weight Confirmation Dialog
+    // Edit Weight Confirmation Dialog
     if (state.showWeightConfirmDialog) {
         AlertDialog(
             onDismissRequest = viewModel::hideWeightConfirmDialog,
             title = {
                 Text(
-                    text = "⚠️ Confirm Weight Change",
+                    text = " Confirm Weight Change",
                     fontFamily = Poppins,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.error
@@ -405,7 +405,7 @@ fun SettingsScreen(
             onDismissRequest = viewModel::hideChangeGoalDialog,
             title = {
                 Text(
-                    text = "Change Goal",  // PART 3: Removed ⚠️
+                    text = "Change Goal",  // PART 3: Removed 
                     style = MaterialTheme.typography.bodyMedium,  // PART 3: Body size (bold)
                     fontFamily = Poppins,
                     fontWeight = FontWeight.Bold
@@ -463,7 +463,7 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = viewModel::requestGoalChange) {  // ✅ CHANGED: Show second confirmation
+                TextButton(onClick = viewModel::requestGoalChange) {  // CHANGED: Show second confirmation
                     Text("Continue", fontFamily = Poppins, color = DarkTurquoise)
                 }
             },
@@ -481,7 +481,7 @@ fun SettingsScreen(
             onDismissRequest = viewModel::hideDeleteConfirmDialog,
             title = {
                 Text(
-                    text = "Delete Account",  // PART 3: Removed ⚠️
+                    text = "Delete Account",  // PART 3: Removed 
                     style = MaterialTheme.typography.bodyMedium,  // PART 3: Body size (bold)
                     fontFamily = Poppins,
                     fontWeight = FontWeight.Bold,
@@ -511,13 +511,13 @@ fun SettingsScreen(
         )
     }
     
-    // ✅ SECOND CONFIRMATION: Goal Change Final Warning
+    // SECOND CONFIRMATION: Goal Change Final Warning
     if (state.showGoalConfirmDialog) {
         AlertDialog(
             onDismissRequest = viewModel::hideGoalConfirmDialog,
             title = {
                 Text(
-                    text = "⚠️ Confirm Goal Change",
+                    text = " Confirm Goal Change",
                     fontFamily = Poppins,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.error
@@ -526,7 +526,7 @@ fun SettingsScreen(
             text = {
                 Column {
                     Text(
-                        text = "⚠️ This action CANNOT be undone!",
+                        text = " This action CANNOT be undone!",
                         fontFamily = Poppins,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Bold,

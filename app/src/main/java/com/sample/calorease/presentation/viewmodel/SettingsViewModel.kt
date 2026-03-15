@@ -15,13 +15,13 @@ import javax.inject.Inject
 
 data class SettingsState(
     val userStats: UserStats? = null,
-    val adminAccess: Boolean = false,  // ✅ Phase 4: Admin access flag
+    val adminAccess: Boolean = false,  // Phase 4: Admin access flag
     val newWeight: String = "",
     val newWeightGoal: WeightGoal? = null,
     val showEditWeightDialog: Boolean = false,
-    val showWeightConfirmDialog: Boolean = false,  // ✅ NEW: Edit Weight confirmation
+    val showWeightConfirmDialog: Boolean = false,  // NEW: Edit Weight confirmation
     val showChangeGoalDialog: Boolean = false,
-    val showGoalConfirmDialog: Boolean = false,  // ✅ Double confirmation for goal
+    val showGoalConfirmDialog: Boolean = false,  // Double confirmation for goal
     val showLogoutConfirmDialog: Boolean = false,
     val showDeleteConfirmDialog: Boolean = false,
     val showDeleteFinalWarningDialog: Boolean = false,  // PHASE 3: Second delete confirmation
@@ -34,7 +34,7 @@ class SettingsViewModel @Inject constructor(
     private val repository: LegacyCalorieRepository,
     private val calculatorUseCase: CalculatorUseCase,
     val sessionManager: com.sample.calorease.data.session.SessionManager,  // PHASE 3: Public for Switch to Admin
-    private val userRepository: com.sample.calorease.domain.repository.UserRepository  // ✅ Phase 4: For adminAccess
+    private val userRepository: com.sample.calorease.domain.repository.UserRepository  // Phase 4: For adminAccess
 ) : ViewModel() {
     
     private val _settingsState = MutableStateFlow(SettingsState())
@@ -59,7 +59,7 @@ class SettingsViewModel @Inject constructor(
             // Load UserStats by userId
             val userStats = repository.getUserStats(userId)
             
-            // ✅ Phase 4: Load admin access from UserEntity
+            // Phase 4: Load admin access from UserEntity
             val adminAccess = userRepository.getUserById(userId).getOrNull()?.adminAccess ?: false
             
             _settingsState.value = _settingsState.value.copy(
@@ -89,7 +89,7 @@ class SettingsViewModel @Inject constructor(
         _settingsState.value = _settingsState.value.copy(newWeight = weight)
     }
     
-    // ✅ STEP 1: Show weight change confirmation
+    // STEP 1: Show weight change confirmation
     fun requestWeightChange() {
         _settingsState.value = _settingsState.value.copy(
             showEditWeightDialog = false,
@@ -104,7 +104,7 @@ class SettingsViewModel @Inject constructor(
         )
     }
     
-    // ✅ STEP 2: Actually save weight
+    // STEP 2: Actually save weight
     fun saveNewWeight() {
         viewModelScope.launch {
             val state = _settingsState.value
@@ -129,11 +129,11 @@ class SettingsViewModel @Inject constructor(
             
             repository.updateUserStats(updatedStats)
             
-            // ✅ FIX #4: AWAIT delete completion before updating UI
+            // FIX #4: AWAIT delete completion before updating UI
             // This ensures food logs are deleted BEFORE Dashboard/Stats refresh
-            android.util.Log.d("SettingsViewModel", "🗑️ Deleting progress for userId=${userStats.userId}...")
+            android.util.Log.d("SettingsViewModel", "Deleting progress for userId=${userStats.userId}...")
             deleteUserProgress(userStats.userId)  // Suspends until complete
-            android.util.Log.d("SettingsViewModel", "✅ Progress deleted, now updating UI state")
+            android.util.Log.d("SettingsViewModel", "Progress deleted, now updating UI state")
             
             _settingsState.value = state.copy(
                 userStats = updatedStats,
@@ -141,7 +141,7 @@ class SettingsViewModel @Inject constructor(
                 showWeightConfirmDialog = false
             )
             
-            android.util.Log.d("SettingsViewModel", "✅ Weight updated to $newWeight kg, UI refreshed")
+            android.util.Log.d("SettingsViewModel", "Weight updated to $newWeight kg, UI refreshed")
         }
     }
     
@@ -161,7 +161,7 @@ class SettingsViewModel @Inject constructor(
         _settingsState.value = _settingsState.value.copy(newWeightGoal = goal)
     }
     
-    // ✅ STEP 1: Show confirmation (first dialog → second dialog)
+    // STEP 1: Show confirmation (first dialog -> second dialog)
     fun requestGoalChange() {
         _settingsState.value = _settingsState.value.copy(
             showChangeGoalDialog = false,
@@ -176,7 +176,7 @@ class SettingsViewModel @Inject constructor(
         )
     }
     
-    // ✅ STEP 2: Actually save and DELETE PROGRESS
+    // STEP 2: Actually save and DELETE PROGRESS
     fun saveNewGoal() {
         viewModelScope.launch {
             val state = _settingsState.value
@@ -201,10 +201,10 @@ class SettingsViewModel @Inject constructor(
             
             repository.updateUserStats(updatedStats)
             
-            // ✅ FIX #4: AWAIT delete completion before updating UI
-            android.util.Log.d("SettingsViewModel", "🗑️ Deleting progress for userId=${userStats.userId}...")
+            // FIX #4: AWAIT delete completion before updating UI
+            android.util.Log.d("SettingsViewModel", "Deleting progress for userId=${userStats.userId}...")
             deleteUserProgress(userStats.userId)  // Suspends until complete
-            android.util.Log.d("SettingsViewModel", "✅ Progress deleted, now updating UI state")
+            android.util.Log.d("SettingsViewModel", "Progress deleted, now updating UI state")
             
             _settingsState.value = state.copy(
                 userStats = updatedStats,
@@ -212,15 +212,15 @@ class SettingsViewModel @Inject constructor(
                 showGoalConfirmDialog = false
             )
             
-            android.util.Log.d("SettingsViewModel", "✅ Goal changed to $newGoal, UI refreshed!")
+            android.util.Log.d("SettingsViewModel", "Goal changed to $newGoal, UI refreshed!")
         }
     }
     
-    // ✅ Delete all DailyEntryEntity records for user
+    // Delete all DailyEntryEntity records for user
     private suspend fun deleteUserProgress(userId: Int) {
         try {
             repository.deleteAllDailyEntriesForUser(userId)
-            android.util.Log.d("SettingsViewModel", "🗑️ Deleted all daily entries for userId=$userId")
+            android.util.Log.d("SettingsViewModel", "Deleted all daily entries for userId=$userId")
         } catch (e: Exception) {
             android.util.Log.e("SettingsViewModel", "Error deleting progress", e)
         }
@@ -254,7 +254,7 @@ class SettingsViewModel @Inject constructor(
         _settingsState.value = _settingsState.value.copy(showDeleteConfirmDialog = false)
     }
     
-    // PHASE 3: First confirmation → Second confirmation
+    // PHASE 3: First confirmation -> Second confirmation
     fun confirmFirstDelete() {
         _settingsState.value = _settingsState.value.copy(
             showDeleteConfirmDialog = false,
@@ -273,7 +273,7 @@ class SettingsViewModel @Inject constructor(
             val userId = sessionManager.getUserId()
             userId?.let {
                 userRepository.deactivateAccount(it)
-                android.util.Log.d("SettingsViewModel", "✅ Account deactivated (userId=$it)")
+                android.util.Log.d("SettingsViewModel", "Account deactivated (userId=$it)")
             }
             
             // PHASE 3: Save deletion success flag for login screen notification
@@ -295,12 +295,12 @@ class SettingsViewModel @Inject constructor(
     
     
     /**
-     * 🟠 PHASE 2 FIX: Switch to admin mode using injected SessionManager
+     * PHASE 2 FIX: Switch to admin mode using injected SessionManager
      */
     fun switchToAdminMode(onNavigate: () -> Unit) {
         viewModelScope.launch {
             sessionManager.saveLastDashboardMode("admin")
-            android.util.Log.d("SettingsViewModel", "🟠 Saved lastDashboardMode = admin")
+            android.util.Log.d("SettingsViewModel", "Saved lastDashboardMode = admin")
             onNavigate()
         }
     }

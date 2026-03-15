@@ -37,7 +37,7 @@ interface UserRepository {
     
     /**
      * Get all users (Admin only)
-     * ✅ Phase 5: For admin users management
+     * Phase 5: For admin users management
      */
     suspend fun getAllUsers(): Result<List<UserEntity>>
     
