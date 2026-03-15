@@ -87,6 +87,7 @@ dependencies {
     // BoM manages all Firebase library versions — update one line to upgrade all
     implementation(platform("com.google.firebase:firebase-bom:33.9.0"))
     implementation("com.google.firebase:firebase-auth-ktx")          // Firebase Auth
+    implementation("com.google.firebase:firebase-firestore-ktx")     // Phase 1: Firestore    
 
     // ── Google Sign-In via Credential Manager ─────────────────────────────────
     // Credential Manager — the modern, single-tap sign-in API (replaces legacy GoogleSignInClient)

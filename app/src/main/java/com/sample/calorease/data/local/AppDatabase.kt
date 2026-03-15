@@ -21,7 +21,7 @@ import com.sample.calorease.data.model.UserStats
  */
 @Database(
     entities      = [UserEntity::class, DailyEntryEntity::class, UserStats::class],
-    version       = 15,
+    version       = 16,
     exportSchema  = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -80,6 +80,20 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `users` ADD COLUMN `isEmailVerified` INTEGER NOT NULL DEFAULT 0")
                 android.util.Log.d("AppDatabase", "Migration 14→15: added isEmailVerified column to users")
+            }
+        }
+        /**
+         * Migration 15 → 16
+         * - users: add `lastUpdated` INTEGER default current millis
+         * - daily_entries: add `lastUpdated` INTEGER default current millis
+         * Required for Sprint 4 Phase 1 remote sync synchronization mappings.
+         */
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val currentMillis = System.currentTimeMillis()
+                db.execSQL("ALTER TABLE `users` ADD COLUMN `lastUpdated` INTEGER NOT NULL DEFAULT $currentMillis")
+                db.execSQL("ALTER TABLE `daily_entries` ADD COLUMN `lastUpdated` INTEGER NOT NULL DEFAULT $currentMillis")
+                android.util.Log.d("AppDatabase", "Migration 15→16: added lastUpdated columns")
             }
         }
     }

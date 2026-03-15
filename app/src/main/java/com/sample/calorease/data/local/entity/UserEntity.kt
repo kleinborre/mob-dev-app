@@ -50,5 +50,8 @@ data class UserEntity(
     
     // Calculated Metrics
     val bmr: Int, // Basal Metabolic Rate (kcal)
-    val tdee: Int // Total Daily Energy Expenditure (kcal)
+    val tdee: Int, // Total Daily Energy Expenditure (kcal)
+    
+    // Remote Sync (Sprint 4 Phase 1)
+    val lastUpdated: Long = System.currentTimeMillis() // Epoch timestamp for Last-Write-Wins sync
 )

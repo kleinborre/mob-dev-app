@@ -61,7 +61,8 @@ object AppModule {
             .addMigrations(
                 AppDatabase.MIGRATION_12_13, 
                 AppDatabase.MIGRATION_13_14,
-                AppDatabase.MIGRATION_14_15
+                AppDatabase.MIGRATION_14_15,
+                AppDatabase.MIGRATION_15_16
             )
             // NOTE: fallbackToDestructiveMigration() has been intentionally REMOVED
             // to prevent silent data wipes. If you add a new DB version, add a
@@ -100,12 +101,12 @@ object AppModule {
                 (email, password, nickname, role, isActive, accountStatus,
                  adminAccess, isSuperAdmin, accountCreated,
                  gender, height, weight, age, activityLevel,
-                 targetWeight, goalType, bmr, tdee, googleId, isEmailVerified)
+                 targetWeight, goalType, bmr, tdee, googleId, isEmailVerified, lastUpdated)
                 VALUES
                 ('test@calorease.com', 'Test123!', 'Test User', 'USER', 1, 'active',
                  0, 0, $now,
                  'Male', 175, 75.0, 28, 'Moderate',
-                 70.0, 'LOSE', 1759, 2726, NULL, 1)
+                 70.0, 'LOSE', 1759, 2726, NULL, 1, $now)
             """.trimIndent())
 
             // Admin user: male, 35y, 180cm, 80kg, goal MAINTAIN
@@ -116,12 +117,12 @@ object AppModule {
                 (email, password, nickname, role, isActive, accountStatus,
                  adminAccess, isSuperAdmin, accountCreated,
                  gender, height, weight, age, activityLevel,
-                 targetWeight, goalType, bmr, tdee, googleId, isEmailVerified)
+                 targetWeight, goalType, bmr, tdee, googleId, isEmailVerified, lastUpdated)
                 VALUES
                 ('admin@calorease.com', 'Admin123!', 'Admin User', 'ADMIN', 1, 'active',
                  1, 1, $now,
                  'Male', 180, 80.0, 35, 'Moderate',
-                 80.0, 'MAINTAIN', 1880, 2914, NULL, 1)
+                 80.0, 'MAINTAIN', 1880, 2914, NULL, 1, $now)
             """.trimIndent())
 
             // user_stats for test user (userId = 1) - onboardingCompleted = 1 to skip onboarding

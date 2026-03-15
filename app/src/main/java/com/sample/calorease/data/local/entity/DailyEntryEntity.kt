@@ -36,5 +36,8 @@ data class DailyEntryEntity(
     val date: Long,       // Timestamp in milliseconds (start-of-day)
     val foodName: String,
     val calories: Int,
-    val mealType: String  // "Breakfast", "Lunch", "Dinner", "Snack"
+    val mealType: String, // "Breakfast", "Lunch", "Dinner", "Snack"
+    
+    // Remote Sync (Sprint 4 Phase 1)
+    val lastUpdated: Long = System.currentTimeMillis() // Epoch timestamp for Last-Write-Wins sync
 )
