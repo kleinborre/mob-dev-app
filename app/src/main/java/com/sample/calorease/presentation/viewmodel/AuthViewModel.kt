@@ -1,5 +1,6 @@
 package com.sample.calorease.presentation.viewmodel
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -13,8 +14,14 @@ import com.sample.calorease.domain.model.Gender
 import com.sample.calorease.domain.model.WeightGoal
 import com.sample.calorease.domain.repository.UserRepository
 import com.sample.calorease.domain.usecase.CalculatorUseCase
+import com.sample.calorease.presentation.ui.UiEvent
+import com.sample.calorease.presentation.util.NetworkUtils
 import com.sample.calorease.util.ValidationUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -45,6 +52,7 @@ data class AuthState(
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val userRepository: UserRepository,
     private val sessionManager: SessionManager,
     private val calculatorUseCase: CalculatorUseCase,
@@ -54,6 +62,9 @@ class AuthViewModel @Inject constructor(
     
     private val _authState = MutableStateFlow(AuthState())
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
+
+    private val _uiEvent = MutableSharedFlow<UiEvent>()
+    val uiEvent: SharedFlow<UiEvent> = _uiEvent.asSharedFlow()
     
     fun updateEmail(email: String) {
         val trimmedEmail = email.trim()
@@ -110,6 +121,13 @@ class AuthViewModel @Inject constructor(
         
         
         _authState.value = _authState.value.copy(isLoading = true)
+        
+        // Sprint 4 Phase 3: Offline Block
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            _authState.value = _authState.value.copy(isLoading = false)
+            viewModelScope.launch { _uiEvent.emit(UiEvent.ShowError("No network connection")) }
+            return
+        }
         
         viewModelScope.launch {
             // Check if email exists first for better error messages
@@ -231,6 +249,13 @@ class AuthViewModel @Inject constructor(
         
         _authState.value = _authState.value.copy(isLoading = true)
         
+        // Sprint 4 Phase 3: Offline Block
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            _authState.value = _authState.value.copy(isLoading = false)
+            viewModelScope.launch { _uiEvent.emit(UiEvent.ShowError("No network connection")) }
+            return
+        }
+        
         viewModelScope.launch {
             try {
                 // Check if email already exists locally
@@ -306,6 +331,14 @@ class AuthViewModel @Inject constructor(
      */
     fun googleSignIn(idToken: String) {
         _authState.value = _authState.value.copy(isLoading = true, googleSignInError = null)
+        
+        // Sprint 4 Phase 3: Offline Block
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            _authState.value = _authState.value.copy(isLoading = false, googleSignInError = "No network connection. Online features are restricted.")
+            viewModelScope.launch { _uiEvent.emit(com.sample.calorease.presentation.ui.UiEvent.ShowError("No network connection")) }
+            return
+        }
+
         viewModelScope.launch {
             try {
                 // ── Step 1: Verify with Firebase ──────────────────────────────

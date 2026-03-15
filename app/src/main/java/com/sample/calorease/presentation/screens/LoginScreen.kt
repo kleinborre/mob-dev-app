@@ -85,6 +85,23 @@ fun LoginScreen(
         }
     }
 
+    // AuthViewModel-level UiEvents (e.g. Offline Network blocks)
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collect { event ->
+            when (event) {
+                is com.sample.calorease.presentation.ui.UiEvent.ShowError -> {
+                    soundPlayer.playError()
+                    dialog.showError(event.message)
+                }
+                is com.sample.calorease.presentation.ui.UiEvent.ShowSuccess -> {
+                    soundPlayer.playSuccess()
+                    dialog.showSuccess(event.message)
+                }
+                else -> Unit
+            }
+        }
+    }
+
     // AuthViewModel-level Google errors -> snackbar
     LaunchedEffect(authState.googleSignInError) {
         authState.googleSignInError?.let {
