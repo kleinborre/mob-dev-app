@@ -15,11 +15,13 @@ import androidx.room.PrimaryKey
 data class UserEntity(
     @PrimaryKey(autoGenerate = true)
     val userId: Int = 0,
-    
+
     // Authentication
     val email: String,
     val password: String, // Plain text for local prototype
-    
+
+    // Google Sign-In link — null if user never signed in with Google
+    val googleId: String? = null,
     // Profile
     val nickname: String,
     val role: String = "USER", // "USER" or "ADMIN"

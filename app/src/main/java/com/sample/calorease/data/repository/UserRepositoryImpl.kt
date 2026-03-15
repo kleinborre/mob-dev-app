@@ -71,4 +71,13 @@ class UserRepositoryImpl @Inject constructor(
 
     override suspend fun getUserStats(userId: Int): UserStats? =
         dao.getUserStats(userId)
+
+    override suspend fun getUserByGoogleId(googleId: String): Result<UserEntity?> = try {
+        Result.success(dao.getUserByGoogleId(googleId))
+    } catch (e: Exception) { Result.failure(e) }
+
+    override suspend fun linkGoogleId(userId: Int, googleId: String): Result<Unit> = try {
+        dao.updateGoogleId(userId, googleId)
+        Result.success(Unit)
+    } catch (e: Exception) { Result.failure(e) }
 }

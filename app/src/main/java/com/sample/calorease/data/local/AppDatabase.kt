@@ -10,39 +10,32 @@ import com.sample.calorease.data.local.entity.UserEntity
 import com.sample.calorease.data.model.UserStats
 
 /**
- * CalorEase Room Database — version 13
+ * CalorEase Room Database — version 14
  *
  * Tables:
- *  - users            (UserEntity)      — authentication + admin flags
+ *  - users            (UserEntity)      — authentication + admin flags + optional googleId
  *  - user_stats       (UserStats)       — onboarding profile & goals; 1-to-1 with users
  *  - daily_entries    (DailyEntryEntity)— food log per user per day
  *
- * Schema is 3NF compliant:
- *  - No transitive dependencies within each table
- *  - user_stats references users.userId (FK + CASCADE delete)
- *  - daily_entries references users.userId (FK + CASCADE delete)
- *  - Composite index (userId, date) on daily_entries for optimised range queries
+ * Schema is 3NF compliant.
  */
 @Database(
     entities      = [UserEntity::class, DailyEntryEntity::class, UserStats::class],
-    version       = 13,
+    version       = 14,
     exportSchema  = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun calorieDao(): CalorieDao
 
     companion object {
+
         /**
          * Migration 12 → 13
-         * Changes:
-         *  - daily_entries: FK onDelete changed from NO_ACTION to CASCADE
-         *  - daily_entries: composite index (userId, date) added
-         *
-         * Room cannot alter FK constraints in SQLite; we recreate the table.
+         * - daily_entries: FK onDelete changed to CASCADE
+         * - daily_entries: composite index (userId, date) added
          */
         val MIGRATION_12_13 = object : Migration(12, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // 1. Create the new table with correct FK + indices
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS `daily_entries_new` (
                         `entryId`   INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -55,22 +48,28 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                 """.trimIndent())
 
-                // 2. Copy existing data
                 db.execSQL("""
                     INSERT INTO `daily_entries_new`
                     SELECT entryId, userId, date, foodName, calories, mealType
                     FROM   `daily_entries`
                 """.trimIndent())
 
-                // 3. Drop old table
                 db.execSQL("DROP TABLE `daily_entries`")
-
-                // 4. Rename new table
                 db.execSQL("ALTER TABLE `daily_entries_new` RENAME TO `daily_entries`")
-
-                // 5. Recreate indices
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_daily_entries_userId_date` ON `daily_entries` (`userId`, `date`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_daily_entries_userId`      ON `daily_entries` (`userId`)")
+            }
+        }
+
+        /**
+         * Migration 13 → 14
+         * - users: add nullable `googleId` TEXT column for Google OAuth linking
+         */
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Simple ALTER TABLE — adding a nullable column is always backward safe in SQLite
+                db.execSQL("ALTER TABLE `users` ADD COLUMN `googleId` TEXT")
+                android.util.Log.d("AppDatabase", "Migration 13→14: added googleId column to users")
             }
         }
     }

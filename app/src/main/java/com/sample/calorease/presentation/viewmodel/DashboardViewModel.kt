@@ -130,7 +130,7 @@ class DashboardViewModel @Inject constructor(
                 )
                 calorieRepository.addDailyEntry(entry)
                 // Flow observer auto-refreshes UI — no manual loadDashboardData() call needed
-                _uiEvent.emit(UiEvent.ShowSuccess("success:$foodName added successfully!"))
+                _uiEvent.emit(UiEvent.ShowSuccess("$foodName added successfully!"))
             } catch (e: Exception) {
                 _dashboardState.value = _dashboardState.value.copy(
                     error = "Failed to add entry: ${e.message}"
@@ -145,7 +145,7 @@ class DashboardViewModel @Inject constructor(
             try {
                 calorieRepository.deleteDailyEntry(entryId)
                 // Flow observer auto-refreshes UI
-                _uiEvent.emit(UiEvent.ShowSuccess("success:Entry removed"))
+                _uiEvent.emit(UiEvent.ShowSuccess("Entry removed"))
             } catch (e: Exception) {
                 _uiEvent.emit(UiEvent.ShowError("Failed to delete entry"))
             }

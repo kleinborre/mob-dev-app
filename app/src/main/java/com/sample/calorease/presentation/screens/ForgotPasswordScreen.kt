@@ -13,12 +13,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import com.sample.calorease.presentation.components.AuthScaffold
 import com.sample.calorease.presentation.components.CalorEaseButton
 import com.sample.calorease.presentation.components.CalorEaseTextField
+import com.sample.calorease.presentation.components.rememberStatusDialog
+import com.sample.calorease.presentation.components.Render
 import com.sample.calorease.presentation.theme.DarkTurquoise
 import com.sample.calorease.presentation.theme.Poppins
+import com.sample.calorease.presentation.util.NetworkUtils
 import com.sample.calorease.util.ValidationUtils
 
 @Composable
@@ -26,6 +30,11 @@ fun ForgotPasswordScreen(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var emailError by remember { mutableStateOf<String?>(null) }
     var showSuccessDialog by remember { mutableStateOf(false) }
+    
+    val context = LocalContext.current
+    val statusDialog = rememberStatusDialog()
+    
+    statusDialog.Render()
     
     AuthScaffold(
         onBackClick = { navController.popBackStack() }
@@ -90,6 +99,10 @@ fun ForgotPasswordScreen(navController: NavController) {
         CalorEaseButton(
             text = "Reset Password",
             onClick = {
+                if (!NetworkUtils.isNetworkAvailable(context)) {
+                    statusDialog.showError("Network unavailable. Please connect to the internet to reset password.")
+                    return@CalorEaseButton
+                }
                 if (email.isBlank()) {
                     emailError = "Email cannot be empty"
                 } else if (ValidationUtils.isValidEmail(email)) {

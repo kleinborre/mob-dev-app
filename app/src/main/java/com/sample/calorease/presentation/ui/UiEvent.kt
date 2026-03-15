@@ -15,22 +15,25 @@ package com.sample.calorease.presentation.ui
  *   }
  */
 sealed class UiEvent {
-    /** Show a green success Snackbar with optional action label. */
+    /** Show a loading modal with a context-specific message. */
+    data class ShowLoading(
+        val message: String
+    ) : UiEvent()
+
+    /** Show a green success modal with auto-dismiss. */
     data class ShowSuccess(
         val message: String,
         val actionLabel: String? = null
     ) : UiEvent()
 
-    /** Show a red error Snackbar with optional action label. */
+    /** Show a red error modal with auto-dismiss. */
     data class ShowError(
         val message: String,
         val actionLabel: String? = null
     ) : UiEvent()
 
-    /** Show a neutral info Snackbar. */
-    data class ShowInfo(
-        val message: String
-    ) : UiEvent()
+    /** Dismiss any currently-showing modal. */
+    object DismissDialog : UiEvent()
 
     /** Navigate to a route, optionally clearing the back stack. */
     data class Navigate(

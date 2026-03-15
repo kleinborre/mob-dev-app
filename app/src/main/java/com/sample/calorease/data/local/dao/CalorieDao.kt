@@ -44,7 +44,19 @@ interface CalorieDao {
      */
     @Query("SELECT * FROM users WHERE email = :email")
     suspend fun getUserByEmail(email: String): UserEntity?
-    
+
+    /**
+     * Get user by Google account UID (for Google Sign-In linking)
+     */
+    @Query("SELECT * FROM users WHERE googleId = :googleId LIMIT 1")
+    suspend fun getUserByGoogleId(googleId: String): UserEntity?
+
+    /**
+     * Link a Google account to an existing local user
+     */
+    @Query("UPDATE users SET googleId = :googleId WHERE userId = :userId")
+    suspend fun updateGoogleId(userId: Int, googleId: String)
+
     /**
      * Check if email exists
      */

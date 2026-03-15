@@ -46,4 +46,10 @@ interface UserRepository {
 
     /** Get user stats (one-shot). */
     suspend fun getUserStats(userId: Int): UserStats?
+
+    /** Find a local account linked to a Google UID. */
+    suspend fun getUserByGoogleId(googleId: String): Result<UserEntity?>
+
+    /** Link a Google account UID to an existing local user row. */
+    suspend fun linkGoogleId(userId: Int, googleId: String): Result<Unit>
 }

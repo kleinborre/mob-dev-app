@@ -1,17 +1,26 @@
 package com.sample.calorease.util
 
 object ValidationUtils {
-    
+
     /**
-     * Validates email format
-     * @return true if email contains @ and has at least one character before and after @
+     * Stricter email format validation for Sign-Up.
+     * Requires:
+     *  - Valid local part: letters, digits, +, _, ., - (no consecutive dots, no leading/trailing dot)
+     *  - @ separator
+     *  - Domain with at least one dot and a 2-6 char TLD (rejects .c, .123, etc.)
      */
     fun isValidEmail(email: String): Boolean {
         if (email.isBlank()) return false
-        val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
-        return email.matches(emailRegex.toRegex())
+        // Stricter regex: local part cannot start/end with a dot, no consecutive dots
+        val emailRegex = Regex(
+            "^[A-Za-z0-9+_-]+(\\.[A-Za-z0-9+_-]+)*" +  // local part
+            "@" +
+            "[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*" +        // domain
+            "\\.[A-Za-z]{2,6}$"                          // TLD 2-6 chars
+        )
+        return emailRegex.matches(email)
     }
-    
+
     /**
      * Validates password length (minimum 6 characters for login, 8 for signup)
      */

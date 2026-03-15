@@ -22,6 +22,10 @@ import com.sample.calorease.presentation.theme.DeepTeal
 import com.sample.calorease.presentation.theme.DarkTurquoise
 import com.sample.calorease.presentation.theme.Poppins
 
+import com.sample.calorease.presentation.components.rememberStatusDialog
+import com.sample.calorease.presentation.components.Render
+import kotlinx.coroutines.delay
+
 /**
  * Admin Settings Screen
  * Contains: User Mode button, Sign Out button
@@ -36,6 +40,8 @@ fun AdminSettingsScreen(
     var showSignOutConfirm by remember { mutableStateOf(false) }
     var shouldSwitchToUser by remember { mutableStateOf(false) }  // PHASE 3: Navigation trigger
     var shouldSignOut by remember { mutableStateOf(false) }  // PART 3: Sign Out trigger
+    val statusDialog = rememberStatusDialog()
+
     
    // PHASE 3: Save preference when switch is confirmed
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -46,11 +52,18 @@ fun AdminSettingsScreen(
         }
     }
     
-    // BUGFIX Issue 3: Clear session AND navigate to Login when signing out
+    // BUGFIX Issue 3: Clear session AND navigate to Login when signing out (with loading animation)
     androidx.compose.runtime.LaunchedEffect(shouldSignOut) {
         if (shouldSignOut) {
+            statusDialog.showLoading("Signing out...")
+            delay(800)
+            
             val sessionManager = com.sample.calorease.data.session.SessionManager(context)
             sessionManager.clearSession()
+            
+            statusDialog.showSuccess("Logged out successfully")
+            delay(500)
+            
             // Navigate to Login (not Getting Started, as they've logged in before)
             navController.navigate(com.sample.calorease.presentation.navigation.Screen.Login.route) {
                 popUpTo(0) { inclusive = true }  // Clear entire back stack
@@ -58,8 +71,12 @@ fun AdminSettingsScreen(
         }
     }
     
+    // Render status dialog over entire screen
+    statusDialog.Render()
+    
     Scaffold(
-        bottomBar = { AdminBottomNavigationBar(navController = navController) }
+        bottomBar = { AdminBottomNavigationBar(navController = navController) },
+        containerColor = Color.Transparent
     ) { paddingValues ->
         Column(
             modifier = Modifier

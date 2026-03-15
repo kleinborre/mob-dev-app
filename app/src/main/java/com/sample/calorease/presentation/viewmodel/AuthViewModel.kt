@@ -3,6 +3,7 @@ package com.sample.calorease.presentation.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.tasks.Tasks
 import com.sample.calorease.data.local.entity.UserEntity
 import com.sample.calorease.data.model.UserStats
 import com.sample.calorease.data.repository.LegacyCalorieRepository
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 data class AuthState(
@@ -34,7 +36,9 @@ data class AuthState(
     val isSignUpSuccess: Boolean = false,
     // Navigation destination flags
     val navigateToDashboard: Boolean = false,
-    val navigateToOnboarding: Boolean = false
+    val navigateToOnboarding: Boolean = false,
+    // Google Sign-In error (null = no error)
+    val googleSignInError: String? = null
 )
 
 @HiltViewModel
@@ -290,8 +294,122 @@ class AuthViewModel @Inject constructor(
         }
     }
     
-    fun googleSignIn() {
-        Log.d("AuthViewModel", "Google Sign In clicked")
+    /**
+     * Google Sign-In — receives the idToken from the Credential Manager launcher in the screen.
+     *
+     * Flow:
+     *  1. Verify token with Firebase Auth
+     *  2. Extract uid (googleId), email, displayName from Firebase result
+     *  3. Check Room for existing row with matching googleId → log in directly
+     *  4. Else check Room for matching email → link googleId to existing account
+     *  5. Else create a brand-new Room user (role=USER, password=googleId as placeholder)
+     *  6. Set navigateToDashboard or navigateToOnboarding based on onboarding completion
+     */
+    fun googleSignIn(idToken: String) {
+        _authState.value = _authState.value.copy(isLoading = true, googleSignInError = null)
+        viewModelScope.launch {
+            try {
+                // ── Step 1: Verify with Firebase ──────────────────────────────
+                val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
+                val firebaseResult = com.google.firebase.auth.FirebaseAuth.getInstance()
+                    .signInWithCredential(credential).await()
+
+                val firebaseUser = firebaseResult.user
+                    ?: throw Exception("Google Sign-In failed: no Firebase user returned")
+
+                val googleId  = firebaseUser.uid
+                val email     = firebaseUser.email ?: throw Exception("Google account has no email")
+                val firstName = firebaseUser.displayName?.substringBefore(" ") ?: ""
+                val lastName  = firebaseUser.displayName?.substringAfter(" ", "") ?: ""
+
+                Log.d("AuthViewModel", "Google Sign-In Firebase OK: uid=$googleId, email=$email")
+
+                // ── Step 2: Lookup by googleId ─────────────────────────────────
+                val byGoogleId = userRepository.getUserByGoogleId(googleId).getOrNull()
+                val user: com.sample.calorease.data.local.entity.UserEntity
+
+                if (byGoogleId != null) {
+                    // Already linked — just log in
+                    user = byGoogleId
+                    Log.d("AuthViewModel", "Google user already linked, logging in userId=${user.userId}")
+
+                } else {
+                    // ── Step 3: Lookup by email ────────────────────────────────
+                    val byEmail = userRepository.getUserByEmail(email).getOrNull()
+
+                    if (byEmail != null) {
+                        // Existing manual account — link google id
+                        userRepository.linkGoogleId(byEmail.userId, googleId)
+                        user = byEmail
+                        Log.d("AuthViewModel", "Linked Google to existing account userId=${user.userId}")
+                    } else {
+                        // ── Step 4: Create new local user ──────────────────────
+                        val newUser = com.sample.calorease.data.local.entity.UserEntity(
+                            email        = email,
+                            password     = googleId,      // placeholder — user never enters a password
+                            nickname     = firstName,
+                            role         = "USER",
+                            isActive     = true,
+                            googleId     = googleId,
+                            gender       = "Male",
+                            height       = 170,
+                            weight       = 70.0,
+                            age          = 25,
+                            activityLevel= "Moderate",
+                            targetWeight = 65.0,
+                            goalType     = "MAINTAIN",
+                            bmr          = 1500,
+                            tdee         = 2000
+                        )
+                        val newId = userRepository.registerUser(newUser)
+                            .getOrThrow()
+                        user = userRepository.getUserById(newId.toInt()).getOrThrow()
+                            ?: throw Exception("Could not load newly created user")
+                        Log.d("AuthViewModel", "Created new Google user userId=${user.userId}")
+                    }
+                }
+
+                // ── Step 5: Save session ────────────────────────────────────────
+                sessionManager.setLoggedIn(user.email)
+                sessionManager.saveUserId(user.userId)
+                sessionManager.saveRole(user.role)
+                sessionManager.saveLastLoginEmail(user.email)
+
+                // ── Step 6: Decide navigation ───────────────────────────────────
+                val userStats         = userRepository.getUserStats(user.userId)
+                val onboardingDone    = userStats?.onboardingCompleted ?: false
+
+                _authState.value = _authState.value.copy(
+                    isLoading       = false,
+                    isLoginSuccess  = true,
+                    navigateToDashboard  = onboardingDone,
+                    navigateToOnboarding = !onboardingDone
+                )
+                Log.d("AuthViewModel", "Google login done: onboarding=$onboardingDone")
+
+            } catch (e: androidx.credentials.exceptions.NoCredentialException) {
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    googleSignInError = "No Google accounts found on this device. Add a Google account in Settings and try again."
+                )
+            } catch (e: Exception) {
+                val msg = when {
+                    e.message?.contains("network", ignoreCase = true) == true ->
+                        "Google Sign-In unavailable. Check your connection."
+                    e.message?.contains("cancel", ignoreCase = true) == true -> null  // user cancelled — silent
+                    else -> "Google Sign-In failed. Please try again."
+                }
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    googleSignInError = msg
+                )
+                Log.e("AuthViewModel", "Google Sign-In error", e)
+            }
+        }
+    }
+
+    fun clearGoogleSignInError() {
+        _authState.value = _authState.value.copy(googleSignInError = null)
     }
     
     fun resetSuccessFlags() {

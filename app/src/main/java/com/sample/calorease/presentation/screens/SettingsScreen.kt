@@ -22,6 +22,8 @@ import com.sample.calorease.presentation.components.BottomNavigationBar
 import com.sample.calorease.presentation.components.CalorEaseButton
 import com.sample.calorease.presentation.components.CalorEaseCard
 import com.sample.calorease.presentation.components.CalorEaseTextField
+import com.sample.calorease.presentation.components.Render
+import com.sample.calorease.presentation.components.rememberStatusDialog
 import com.sample.calorease.presentation.navigation.Screen
 import com.sample.calorease.presentation.theme.AestheticWhite
 import com.sample.calorease.presentation.theme.DeepTeal
@@ -42,8 +44,29 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.settingsState.collectAsState()
-    var showSwitchToAdminConfirm by remember { mutableStateOf(false) }  // PHASE 5: Switch confirmation
-    
+    var showSwitchToAdminConfirm by remember { mutableStateOf(false) }
+    val dialog = rememberStatusDialog()
+
+    // Weight saving loading + success
+    LaunchedEffect(state.isWeightSaving) {
+        if (state.isWeightSaving) dialog.showLoading("Updating weight...")
+    }
+    LaunchedEffect(state.isGoalSaving) {
+        if (state.isGoalSaving) dialog.showLoading("Updating goal...")
+    }
+    LaunchedEffect(state.isLoggingOut) {
+        if (state.isLoggingOut) dialog.showLoading("Signing out...")
+    }
+    LaunchedEffect(state.isDeletingAccount) {
+        if (state.isDeletingAccount) dialog.showLoading("Deleting account...")
+    }
+    LaunchedEffect(state.successMessage) {
+        state.successMessage?.let {
+            dialog.showSuccess(it)
+            viewModel.clearSuccessMessage()
+        }
+    }
+
     // Navigate to getting started on account deletion
     LaunchedEffect(state.shouldNavigateToStart) {
         if (state.shouldNavigateToStart) {
@@ -53,21 +76,16 @@ fun SettingsScreen(
             viewModel.resetNavigationFlag()
         }
     }
-    
+
+    // Render dialog above scaffold
+    dialog.Render()
+
     Scaffold(
         bottomBar      = { BottomNavigationBar(navController = navController) },
         containerColor = Color.Transparent
     ) { paddingValues ->
 
-        if (state.isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = DarkTurquoise)
-            }
-        } else {
-            Column(
+        Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
@@ -315,7 +333,6 @@ fun SettingsScreen(
                         )
                     }
                 }
-            }
         }
     }
     
@@ -373,27 +390,14 @@ fun SettingsScreen(
                     Text(
                         text = "Are you sure you want to update your weight?",
                         fontFamily = Poppins,
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                     
                     Spacer(modifier = Modifier.height(12.dp))
                     
                     Text(
-                        text = "This will:",
-                        fontFamily = Poppins,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Text(
-                        text = "• Recalculate your BMR and TDEE",
-                        fontFamily = Poppins,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = "• Update your daily calorie target",
+                        text = "This will recalculate your BMR, TDEE, and daily calorie target.",
                         fontFamily = Poppins,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -406,12 +410,12 @@ fun SettingsScreen(
                         contentColor = DarkTurquoise
                     )
                 ) {
-                    Text("Yes, Update Weight", fontFamily = Poppins, fontWeight = FontWeight.Bold)
+                    Text("Yes", fontFamily = Poppins, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = viewModel::hideWeightConfirmDialog) {
-                    Text("Cancel", fontFamily = Poppins)
+                    Text("Cancel", fontFamily = Poppins, color = DarkTurquoise)
                 }
             }
         )
@@ -493,42 +497,7 @@ fun SettingsScreen(
         )
     }
     
-    // Delete Confirmation Dialog
-    if (state.showDeleteConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = viewModel::hideDeleteConfirmDialog,
-            title = {
-                Text(
-                    text = "Delete Account",  // PART 3: Removed 
-                    style = MaterialTheme.typography.bodyMedium,  // PART 3: Body size (bold)
-                    fontFamily = Poppins,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface  // PART 3: Black
-                )
-            },
-            text = {
-                Text(
-                    text = "Are you sure you want to delete your account? This will permanently delete all your data and cannot be undone.",
-                    fontFamily = Poppins
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = viewModel::deleteAccount) {
-                    Text(
-                        "Delete",
-                        fontFamily = Poppins,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::hideDeleteConfirmDialog) {
-                    Text("Cancel", fontFamily = Poppins)
-                }
-            }
-        )
-    }
-    
+
     // SECOND CONFIRMATION: Goal Change Final Warning
     if (state.showGoalConfirmDialog) {
         AlertDialog(
@@ -537,7 +506,7 @@ fun SettingsScreen(
                 Text(
                     text = "Confirm Goal Change",
                     fontFamily = Poppins,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -545,25 +514,7 @@ fun SettingsScreen(
             text = {
                 Column {
                     Text(
-                        text = "Changing your goal will:",
-                        fontFamily = Poppins,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Text(
-                        text = "• Delete ALL your food log history",
-                        fontFamily = Poppins,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = "• Reset your progress stats to zero",
-                        fontFamily = Poppins,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = "• Recalculate your daily calorie target",
+                        text = "Changing your goal will delete all your food log history, reset progress, and recalculate your daily calorie target.",
                         fontFamily = Poppins,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -571,7 +522,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     
                     Text(
-                        text = "Are you absolutely sure you want to continue?",
+                        text = "Are you absolutely sure?",
                         fontFamily = Poppins,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
@@ -582,15 +533,15 @@ fun SettingsScreen(
                 TextButton(
                     onClick = viewModel::saveNewGoal,
                     colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
+                        contentColor = DarkTurquoise
                     )
                 ) {
-                    Text("Yes, Delete Progress", fontFamily = Poppins, fontWeight = FontWeight.Bold)
+                    Text("Yes", fontFamily = Poppins, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = viewModel::hideGoalConfirmDialog) {
-                    Text("Cancel", fontFamily = Poppins)
+                    Text("Cancel", fontFamily = Poppins, color = DarkTurquoise)
                 }
             }
         )

@@ -1,6 +1,7 @@
 package com.sample.calorease.presentation.screens
 
-import androidx.compose.foundation.background
+import android.util.Log
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -8,34 +9,44 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember  // PHASE 3: For snackbarHostState
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.NoCredentialException
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.launch
 import com.sample.calorease.R
 import com.sample.calorease.presentation.components.AuthScaffold
 import com.sample.calorease.presentation.components.CalorEaseButton
 import com.sample.calorease.presentation.components.CalorEaseOutlinedButton
 import com.sample.calorease.presentation.components.CalorEaseTextField
+import com.sample.calorease.presentation.components.Render
+import com.sample.calorease.presentation.components.StatusType
+import com.sample.calorease.presentation.components.rememberStatusDialog
 import com.sample.calorease.presentation.navigation.Screen
 import com.sample.calorease.presentation.theme.DarkTurquoise
 import com.sample.calorease.presentation.theme.Poppins
-import com.sample.calorease.presentation.viewmodel.AuthViewModel
+import com.sample.calorease.presentation.util.NetworkUtils
+import com.sample.calorease.presentation.util.SoundPlayer
 import com.sample.calorease.presentation.viewmodel.AuthState
+import com.sample.calorease.presentation.viewmodel.AuthViewModel
+
+// Web Client ID from google-services.json (oauth_client client_type=3)
+private const val WEB_CLIENT_ID = "371598324066-6njd7ji52kinoic77admrcslc704ogq3.apps.googleusercontent.com"
 
 @Composable
 fun LoginScreen(
@@ -43,75 +54,126 @@ fun LoginScreen(
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val authState: AuthState by viewModel.authState.collectAsState()
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
-    
-    // BUGFIX Issue 2: Only show back button for NEW users coming from Getting Started
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val previousRoute = navController.previousBackStackEntry?.destination?.route
-    
-    // Session manager for both account deletion check and login history
-    val sessionManager = remember { com.sample.calorease.data.session.SessionManager(context) }
-    var hasEverLoggedIn by remember { mutableStateOf<Boolean>(false) }
-    
-    // Combined LaunchedEffect: Check account deletion & login history & load last email
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        // PHASE 3: Show account deletion success message
+    val context        = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val dialog         = rememberStatusDialog()
+    val soundPlayer    = remember { SoundPlayer(context) }
+
+    var localSnackMsg       by remember { mutableStateOf<String?>(null) }
+    val snackbarHostState   = remember { SnackbarHostState() }
+
+    val navBackStackEntry   by navController.currentBackStackEntryAsState()
+    val previousRoute       = navController.previousBackStackEntry?.destination?.route
+    val sessionManager      = remember { com.sample.calorease.data.session.SessionManager(context) }
+    var hasEverLoggedIn     by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
         if (sessionManager.wasAccountDeleted()) {
-            snackbarHostState.showSnackbar(
-                message = "Account successfully deleted",
-                duration = androidx.compose.material3.SnackbarDuration.Short
-            )
+            snackbarHostState.showSnackbar("Account successfully deleted", duration = SnackbarDuration.Short)
             sessionManager.clearAccountDeletionFlag()
         }
-        
-        // BUGFIX Issue 2: Check if user has ever logged in (new vs returning user)
         hasEverLoggedIn = sessionManager.hasEverLoggedIn()
-        
-        // BUGFIX Issue 7: Load last login email for auto-fill (if exists)
         val lastEmail = sessionManager.getLastLoginEmail()
-        if (!lastEmail.isNullOrEmpty()) {
-            viewModel.updateEmail(lastEmail)
+        if (!lastEmail.isNullOrEmpty()) viewModel.updateEmail(lastEmail)
+    }
+
+    // Snackbar for local Credential Manager errors
+    LaunchedEffect(localSnackMsg) {
+        localSnackMsg?.let {
+            snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Long)
+            localSnackMsg = null
         }
     }
-    
-    // Only show back if: came from Getting Started AND user has never logged in
+
+    // AuthViewModel-level Google errors -> snackbar
+    LaunchedEffect(authState.googleSignInError) {
+        authState.googleSignInError?.let {
+            soundPlayer.playError()
+            dialog.showError(it)
+            viewModel.clearGoogleSignInError()
+        }
+    }
+
     val canGoBack = previousRoute == Screen.GettingStarted.route && !hasEverLoggedIn
-    
-    // CRITICAL: Navigate on login success. 
-    // Key is isLoginSuccess (false→true→false on every login) — never stale.
-    // navigateToDashboard/navigateToOnboarding alone could be cached from a previous
-    // ViewModel instance and not re-fire the effect on subsequent logins.
-    LaunchedEffect(authState.isLoginSuccess) {
+
+    // Navigate on successful login (email OR Google — called from either flow)
+    LaunchedEffect(authState.isLoginSuccess, authState.navigateToDashboard, authState.navigateToOnboarding) {
         if (!authState.isLoginSuccess) return@LaunchedEffect
         when {
             authState.navigateToDashboard -> {
-                navController.navigate(Screen.Dashboard.route) {
-                    popUpTo(0) { inclusive = true }  // Full clear — works regardless of backstack state
-                }
+                soundPlayer.playSuccess()
+                dialog.showSuccess("Signed in successfully")
+                kotlinx.coroutines.delay(1800L)
+                dialog.dismiss()
+                navController.navigate(Screen.Dashboard.route) { popUpTo(0) { inclusive = true } }
+                viewModel.resetSuccessFlags()
             }
             authState.navigateToOnboarding -> {
-                navController.navigate(Screen.OnboardingName.route) {
-                    popUpTo(0) { inclusive = true }  // Full clear
-                }
+                soundPlayer.playSuccess()
+                dialog.showSuccess("Account ready")
+                kotlinx.coroutines.delay(1800L)
+                dialog.dismiss()
+                navController.navigate(Screen.OnboardingName.route) { popUpTo(0) { inclusive = true } }
+                viewModel.resetSuccessFlags()
             }
         }
-        viewModel.resetSuccessFlags()
     }
-    
-    AuthScaffold(
-        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbarHostState) },  // PHASE 3
-        // BUGFIX Issue 2: Only show back button for new users from Getting Started
-        onBackClick = if (canGoBack) {
-            {
-                // Navigate to Getting Started explicitly, clear backstack
-                navController.navigate(Screen.GettingStarted.route) {
-                    popUpTo(0) { inclusive = true }
+
+    // ── Google Sign-In (two-pass for speed) ──────────────────────────────────
+    // Pass 1: filterByAuthorizedAccounts=true (instant for returning users)
+    // Pass 2: on NoCredentialException, retry with false (full account picker)
+    fun launchGoogleOAuth() {
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            dialog.showError("Network unavailable. Please connect to the internet.")
+            return
+        }
+        coroutineScope.launch {
+            dialog.showLoading("Waiting for accounts...")
+            try {
+                suspend fun getCredential(filterAuthorized: Boolean): String {
+                    val option = GetGoogleIdOption.Builder()
+                        .setFilterByAuthorizedAccounts(filterAuthorized)
+                        .setServerClientId(WEB_CLIENT_ID)
+                        .build()
+                    val result = CredentialManager.create(context).getCredential(
+                        context,
+                        GetCredentialRequest.Builder().addCredentialOption(option).build()
+                    )
+                    return GoogleIdTokenCredential.createFrom(result.credential.data).idToken
                 }
+
+                val idToken = try {
+                    getCredential(true)       // fast path — already authorised
+                } catch (e: NoCredentialException) {
+                    getCredential(false)      // slow path — full picker
+                }
+
+                // ViewModel takes over — isLoginSuccess LaunchedEffect handles navigation
+                viewModel.googleSignIn(idToken)
+
+            } catch (e: GetCredentialCancellationException) {
+                dialog.dismiss()
+                Log.d("LoginScreen", "Google Sign-In cancelled")
+            } catch (e: NoCredentialException) {
+                soundPlayer.playError()
+                dialog.showError("No Google accounts found on this device.")
+            } catch (e: Exception) {
+                Log.e("LoginScreen", "OAuth error", e)
+                soundPlayer.playError()
+                dialog.showError("Google Sign-In unavailable. Check your connection.")
             }
-        } else null  // No back button for returning users or direct login access
+        }
+    }
+
+    // Render the status dialog above everything
+    dialog.Render()
+
+    AuthScaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        onBackClick = if (canGoBack) {
+            { navController.navigate(Screen.GettingStarted.route) { popUpTo(0) { inclusive = true } } }
+        } else null
     ) { paddingValues ->
-        // Main Container acts as the structural column
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -119,12 +181,10 @@ fun LoginScreen(
                 .padding(horizontal = 24.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center // Vertically center content
+            verticalArrangement = Arrangement.Center
         ) {
-            // Minimized top spacer (was 40.dp)
             Spacer(modifier = Modifier.height(16.dp))
-            
-            // CalorEase Logo Text
+
             Text(
                 text = "calorease",
                 style = MaterialTheme.typography.displaySmall,
@@ -132,8 +192,7 @@ fun LoginScreen(
                 fontWeight = FontWeight.Bold,
                 color = DarkTurquoise
             )
-            
-            // Reduced spacer (was 40.dp)
+
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
@@ -143,25 +202,20 @@ fun LoginScreen(
                 fontWeight = FontWeight.Bold,
                 color = DarkTurquoise
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 text = "Login to continue",
                 style = MaterialTheme.typography.bodyLarge,
                 fontFamily = Poppins
             )
-            
-            // Reduced spacer (was 48.dp)
+
             Spacer(modifier = Modifier.height(24.dp))
-            
-            // Email Field
+
             CalorEaseTextField(
                 value = authState.email,
-                onValueChange = { email ->
-                    // REAL FIX: Lambda wrapper ensures immediate state update
-                    viewModel.updateEmail(email)
-                },
+                onValueChange = viewModel::updateEmail,
                 label = "Email",
                 placeholder = "Enter your email",
                 leadingIcon = Icons.Default.Email,
@@ -169,75 +223,76 @@ fun LoginScreen(
                 isError = authState.emailError != null,
                 errorMessage = authState.emailError ?: ""
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
-            // Password Field
+
             CalorEaseTextField(
                 value = authState.password,
-                onValueChange = { password ->
-                    viewModel.updatePassword(password)
-                },
+                onValueChange = viewModel::updatePassword,
                 label = "Password",
                 placeholder = "Enter your password",
                 isPassword = true,
                 isError = authState.passwordError != null,
                 errorMessage = authState.passwordError ?: ""
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
-            // Forgot Password Link
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 Text(
                     text = "Forgot Password?",
                     style = MaterialTheme.typography.bodyMedium,
                     fontFamily = Poppins,
                     color = DarkTurquoise,
                     textDecoration = TextDecoration.Underline,
-                    modifier = Modifier.clickable {
-                        navController.navigate(Screen.ForgotPassword.route)
-                    }
+                    modifier = Modifier.clickable { navController.navigate(Screen.ForgotPassword.route) }
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
-            // Login Button
+
             CalorEaseButton(
                 text = "Login",
-                onClick = {
-                    // REAL FIX: Capture email/password from current authState snapshot
-                    // This ensures we use the EXACT state at click time, not stale state
-                    val currentEmail = authState.email
-                    val currentPassword = authState.password
-                    viewModel.login(email = currentEmail, password = currentPassword)
+                onClick = { 
+                    if (!NetworkUtils.isNetworkAvailable(context)) {
+                        dialog.showError("Network unavailable. Please connect to the internet to log in.")
+                        return@CalorEaseButton
+                    }
+                    viewModel.login(email = authState.email, password = authState.password) 
                 },
                 isLoading = authState.isLoading
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
-            // Google Sign In Button
+
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                HorizontalDivider(modifier = Modifier.weight(1f))
+                Text(
+                    text = "  or  ",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = Poppins,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                HorizontalDivider(modifier = Modifier.weight(1f))
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             CalorEaseOutlinedButton(
-                text = "Sign in with Google",
-                onClick = viewModel::googleSignIn,
+                text = "Continue with Google",
+                onClick = { launchGoogleOAuth() },
                 icon = {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_google_logo),
-                        contentDescription = "Google logo",
+                        contentDescription = "Google",
                         modifier = Modifier.size(20.dp),
                         tint = Color.Unspecified
                     )
                 }
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
-            // Create Account Link
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
@@ -249,7 +304,6 @@ fun LoginScreen(
                     fontFamily = Poppins,
                     color = MaterialTheme.colorScheme.onBackground
                 )
-                
                 Text(
                     text = "Create an Account",
                     style = MaterialTheme.typography.bodyMedium,
@@ -257,13 +311,12 @@ fun LoginScreen(
                     fontWeight = FontWeight.SemiBold,
                     color = DarkTurquoise,
                     textDecoration = TextDecoration.Underline,
-                    modifier = Modifier.clickable {
-                        navController.navigate(Screen.SignUp.route)
-                    }
+                    modifier = Modifier.clickable { navController.navigate(Screen.SignUp.route) }
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
+
 }

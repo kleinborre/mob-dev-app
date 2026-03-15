@@ -7,12 +7,11 @@ import android.media.SoundPool
 /**
  * SoundPlayer — Lightweight utility for playing short UI sound effects.
  *
- * Sound files should be placed at:
- *   app/src/main/res/raw/sound_success.mp3
- *   app/src/main/res/raw/sound_error.mp3
+ * Sound files placed at:
+ *   app/src/main/res/raw/sound_success.wav  (rising two-tone: A5 → C6)
+ *   app/src/main/res/raw/sound_error.wav    (descending tone: A4 → A3)
  *
- * If the resource IDs cannot be resolved (files not yet added), the player
- * degrades gracefully and all play calls are no-ops.
+ * Degrades gracefully if files are missing (all play calls become no-ops).
  *
  * Usage:
  *   val soundPlayer = remember { SoundPlayer(context) }
@@ -51,11 +50,9 @@ class SoundPlayer(private val context: Context) {
             if (successRes != 0) successSoundId = soundPool.load(context, successRes, 1)
             if (errorRes   != 0) errorSoundId   = soundPool.load(context, errorRes,   1)
 
-            if (successRes != 0 || errorRes != 0) {
-                soundPool.setOnLoadCompleteListener { _, _, _ -> loaded = true }
-            }
+            soundPool.setOnLoadCompleteListener { _, _, _ -> loaded = true }
         } catch (e: Exception) {
-            android.util.Log.w("SoundPlayer", "Sound files not found — sounds disabled: ${e.message}")
+            android.util.Log.w("SoundPlayer", "Sounds not found, disabled: ${e.message}")
         }
     }
 

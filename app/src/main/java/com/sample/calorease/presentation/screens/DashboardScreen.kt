@@ -37,6 +37,8 @@ import com.sample.calorease.presentation.theme.Poppins
 import com.sample.calorease.presentation.theme.SubtleGray
 import com.sample.calorease.presentation.ui.UiEvent
 import com.sample.calorease.presentation.util.SoundPlayer
+import com.sample.calorease.presentation.components.Render
+import com.sample.calorease.presentation.components.rememberStatusDialog
 import com.sample.calorease.presentation.viewmodel.DashboardViewModel
 
 // Gradient brush used for the screen background
@@ -55,28 +57,25 @@ fun DashboardScreen(
     var showEditDialog by remember { mutableStateOf<DailyEntryEntity?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
-    val context = LocalContext.current
-    val soundPlayer = remember { SoundPlayer(context) }
+    val context           = LocalContext.current
+    val soundPlayer       = remember { SoundPlayer(context) }
+    val statusDialog      = rememberStatusDialog()
 
-    // Collect one-shot UI events (success/error Snackbars + sounds)
+    // Collect one-shot UI events and show StatusDialog (success auto-dismisses, error auto-dismisses)
     LaunchedEffect(Unit) {
         viewModel.refreshData()
         viewModel.uiEvent.collect { event ->
             when (event) {
-                is UiEvent.ShowSuccess -> {
+                is UiEvent.ShowLoading  -> statusDialog.showLoading(event.message)
+                is UiEvent.ShowSuccess  -> {
                     soundPlayer.playSuccess()
-                    snackbarHostState.showSnackbar(
-                        message  = event.message,
-                        duration = SnackbarDuration.Short
-                    )
+                    statusDialog.showSuccess(event.message)
                 }
-                is UiEvent.ShowError -> {
+                is UiEvent.ShowError    -> {
                     soundPlayer.playError()
-                    snackbarHostState.showSnackbar(
-                        message  = event.message,
-                        duration = SnackbarDuration.Short
-                    )
+                    statusDialog.showError(event.message)
                 }
+                is UiEvent.DismissDialog -> statusDialog.dismiss()
                 else -> Unit
             }
         }
@@ -85,7 +84,10 @@ fun DashboardScreen(
     DisposableEffect(Unit) {
         onDispose { soundPlayer.release() }
     }
-    
+
+    // Render the status dialog above the scaffold
+    statusDialog.Render()
+
     Scaffold(
         topBar    = {},
         containerColor = Color.Transparent,

@@ -140,7 +140,7 @@ fun OnboardingResultsScreen(
             onDismissRequest = { /* Non-dismissable — must click the button to go to dashboard */ },
             title = {
                 Text(
-                    text = "🎉 Welcome to calorease!",
+                    text = "Welcome to calorease!",
                     fontFamily = Poppins,
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
@@ -174,7 +174,7 @@ fun OnboardingResultsScreen(
                     )
                 ) {
                     Text(
-                        text = "Let's Go! 🚀",
+                        text = "Get Started",
                         fontFamily = Poppins,
                         fontWeight = FontWeight.SemiBold
                     )
