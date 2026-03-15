@@ -22,6 +22,18 @@ object ValidationUtils {
     }
 
     /**
+     * Rejects emails not conforming to a whitelist of major providers.
+     * Always allows internal @calorease.com users (Test/Admin).
+     */
+    fun isAcceptedEmailProvider(email: String): Boolean {
+        if (!isValidEmail(email)) return false
+        val domain = email.substringAfterLast('@').lowercase()
+        return domain == "calorease.com" || domain in listOf(
+            "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "microsoft.com"
+        )
+    }
+
+    /**
      * Validates password length (minimum 6 characters for login, 8 for signup)
      */
     fun isValidPassword(password: String, minLength: Int = 6): Boolean {
@@ -55,6 +67,7 @@ object ValidationUtils {
         return when {
             email.isBlank() -> "Email cannot be empty"
             !isValidEmail(email) -> "Invalid email format"
+            !isAcceptedEmailProvider(email) -> "Please use a valid email provider (Gmail, Yahoo, Microsoft)"
             else -> null
         }
     }

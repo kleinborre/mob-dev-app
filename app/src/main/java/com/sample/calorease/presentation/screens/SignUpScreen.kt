@@ -61,10 +61,11 @@ fun SignUpScreen(
     LaunchedEffect(authState.isSignUpSuccess) {
         if (authState.isSignUpSuccess) {
             soundPlayer.playSuccess()
-            dialog.showSuccess("Account created successfully")
+            dialog.showSuccess("Please check your email to verify your account.")
             kotlinx.coroutines.delay(1800L)
             dialog.dismiss()
-            navController.navigate(Screen.OnboardingName.route) { popUpTo(0) { inclusive = true } }
+            
+            navController.popBackStack() // Send back to Login screen to log in after verifying
             viewModel.resetSuccessFlags()
         }
     }

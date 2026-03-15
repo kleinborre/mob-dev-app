@@ -63,6 +63,24 @@ interface CalorieDao {
     @Query("SELECT COUNT(*) FROM users WHERE email = :email")
     suspend fun emailExists(email: String): Int
     
+    /**
+     * Phase 3: Set Email Verified flag
+     */
+    @Query("UPDATE users SET isEmailVerified = :isVerified WHERE userId = :userId")
+    suspend fun updateEmailVerified(userId: Int, isVerified: Boolean)
+
+    /**
+     * Phase 4: Update Email
+     */
+    @Query("UPDATE users SET email = :email WHERE userId = :userId")
+    suspend fun updateUserEmail(userId: Int, email: String)
+
+    /**
+     * Phase 4: Update Password
+     */
+    @Query("UPDATE users SET password = :password WHERE userId = :userId")
+    suspend fun updateUserPassword(userId: Int, password: String)
+    
     // ==================== USER STATS OPERATIONS ====================
     
     /**

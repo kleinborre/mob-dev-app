@@ -263,6 +263,20 @@ fun LoginScreen(
                 isLoading = authState.isLoading
             )
 
+            if (authState.showResendVerification) {
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = { viewModel.resendVerificationEmail() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Haven't received it? Resend Verification Email",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = Poppins
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

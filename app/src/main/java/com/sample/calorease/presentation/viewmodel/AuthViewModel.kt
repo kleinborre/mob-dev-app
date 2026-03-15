@@ -38,7 +38,9 @@ data class AuthState(
     val navigateToDashboard: Boolean = false,
     val navigateToOnboarding: Boolean = false,
     // Google Sign-In error (null = no error)
-    val googleSignInError: String? = null
+    val googleSignInError: String? = null,
+    // Phase 3: Email Verification State
+    val showResendVerification: Boolean = false
 )
 
 @HiltViewModel
@@ -131,34 +133,50 @@ class AuthViewModel @Inject constructor(
                     return@launch
                 }
                 
-                // Email exists and account active, try login
+                // Email exists and account active, check verification
+                if (!existingUser.isEmailVerified) {
+                    try {
+                        val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                        val result = auth.signInWithEmailAndPassword(trimmedEmail, trimmedPassword).await()
+                        
+                        if (result.user?.isEmailVerified == true) {
+                            // User clicked the link! Update Room and proceed
+                            userRepository.updateEmailVerified(existingUser.userId, true)
+                            Log.d("AuthViewModel", "Email verified via Firebase. Room updated.")
+                        } else {
+                            // Still not verified
+                            _authState.value = _authState.value.copy(
+                                isLoading = false,
+                                emailError = "Please verify your email address to continue.",
+                                showResendVerification = true
+                            )
+                            Log.d("AuthViewModel", "Login blocked: Email not verified")
+                            return@launch
+                        }
+                    } catch (e: Exception) {
+                        _authState.value = _authState.value.copy(
+                            isLoading = false,
+                            passwordError = "Incorrect password or network error"
+                        )
+                        Log.e("AuthViewModel", "Firebase auth check failed", e)
+                        return@launch
+                    }
+                }
+
+                // Try local login (will succeed since we verified password above or they are already verified in DB)
                 userRepository.login(trimmedEmail, trimmedPassword).onSuccess { user ->
-                    // FIX: Always allow login - MainViewModel handles onboarding routing
-                    // Removed block that prevented login for incomplete onboarding (catch-22 bug)
                     sessionManager.setLoggedIn(user.email)
                     sessionManager.saveUserId(user.userId)
                     sessionManager.saveRole(user.role)
-                    
-                    // BUGFIX Issue 7: Save last login email for persistence after logout
                     sessionManager.saveLastLoginEmail(user.email)
                     
-                    // BUG3 FIX: Preserve last mode across logout/login.
-                    // Only set a default mode if there is no previously saved mode.
-                    // If admin toggled to user before logout, that must be preserved.
                     val existingMode = sessionManager.getLastDashboardMode()
                     val modeWasSaved = existingMode != "user" || user.role == "user"
                     if (!modeWasSaved) {
-                        // No prior preference — set role-based default
                         val initialMode = if (user.role == "admin") "admin" else "user"
                         sessionManager.saveLastDashboardMode(initialMode)
-                        Log.d("AuthViewModel", "No prior mode — saved default: $initialMode (role=${user.role})")
-                    } else {
-                        Log.d("AuthViewModel", "Preserved existing mode: $existingMode (role=${user.role})")
                     }
                     
-                    // CRITICAL: Check onboarding status using direct DAO path (not legacy stub)
-                    // userRepository.getUserStats() was added in Sprint 3.1 and calls dao.getUserStats()
-                    // directly — this correctly reads the `onboardingCompleted` flag saved during onboarding.
                     val userStats = userRepository.getUserStats(user.userId)
                     val onboardingCompleted = userStats?.onboardingCompleted ?: false
 
@@ -166,16 +184,15 @@ class AuthViewModel @Inject constructor(
                         isLoading = false,
                         isLoginSuccess = true,
                         navigateToDashboard = onboardingCompleted,
-                        navigateToOnboarding = !onboardingCompleted
+                        navigateToOnboarding = !onboardingCompleted,
+                        showResendVerification = false
                     )
-                    Log.d("AuthViewModel", "Login successful for user: ${user.nickname} (userId=${user.userId}, onboarding=$onboardingCompleted)")
+                    Log.d("AuthViewModel", "Login successful out of Room")
                 }.onFailure { error ->
-                    // Login failed - likely wrong password
                     _authState.value = _authState.value.copy(
                         isLoading = false,
                         passwordError = "Incorrect password"
                     )
-                    Log.e("AuthViewModel", "Login error: Wrong password", error)
                 }
             }.onFailure { error ->
                 // Database error during email check
@@ -211,83 +228,56 @@ class AuthViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                // Check for duplicate email - properly unwrap Result
-                val emailCheckResult = userRepository.getUserByEmail(email)
-                
-                var shouldProceed = false
-                var emailExists = false
-                
-                emailCheckResult.onSuccess { existingUser ->
-                    if (existingUser != null) {
-                        emailExists = true
-                    } else {
-                        shouldProceed = true
-                    }
-                }.onFailure { error ->
+                // Check if email already exists locally
+                val alreadyExistsLocal = userRepository.getUserByEmail(email).getOrNull() != null
+                if (alreadyExistsLocal) {
                     _authState.value = _authState.value.copy(
                         isLoading = false,
-                        emailError = "Database error: ${error.message}"
+                        emailError = "This email is already registered locally"
                     )
-                    Log.e("AuthViewModel", "Email check error", error)
-                }
-                
-                if (emailExists) {
-                    _authState.value = _authState.value.copy(
-                        isLoading = false,
-                        emailError = "This email is already registered"
-                    )
-                    Log.d("AuthViewModel", "Email already exists: $email")
                     return@launch
                 }
-                
-                if (!shouldProceed) return@launch
-                
-                // Create new user (name collection moved to onboarding)
-                val newUser = UserEntity(
-                    email = email,
-                    password = password.trim(),  // Trim to match login trimming
-                    nickname = "",  // Will be set in onboarding
-                    role = "USER",
-                    isActive = true,
-                    gender = "Male", // Default, will be updated in onboarding
-                    height = 170, // Default
-                    weight = 70.0, // Default
-                    age = 25, // Default
-                    activityLevel = "Moderate", // Default
-                    targetWeight = 65.0, // Default
-                    goalType = "MAINTAIN", // Default
-                    bmr = 1500, // Will be calculated in onboarding
-                    tdee = 2000 // Will be calculated in onboarding
-                )
-                
-                val result = userRepository.registerUser(newUser)
-                
-                result.onSuccess { userId ->
-                    // CRITICAL FIX: Don't create default user_stats here!
-                    // user_stats will ONLY be created when onboarding completes
-                    // This prevents wrong gender (MALE) showing instead of user's selection
-                    
-                    // Save session
-                    sessionManager.setLoggedIn(email)
-                    sessionManager.saveUserId(userId.toInt())
-                    sessionManager.saveRole("USER")
-                    
+
+                // Create user in Firebase Auth
+                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                val result = auth.createUserWithEmailAndPassword(email, password).await()
+                val firebaseUser = result.user
+
+                if (firebaseUser != null) {
+                    // Send verification email
+                    firebaseUser.sendEmailVerification().await()
+                    Log.d("AuthViewModel", "Verification email sent to $email")
+
+                    // Create offline user in Room with isEmailVerified = false
+                    val newUser = UserEntity(
+                        email = email,
+                        password = password.trim(),
+                        nickname = "",
+                        role = "USER",
+                        isActive = true,
+                        isEmailVerified = false,
+                        gender = "Male",
+                        height = 170, 
+                        weight = 70.0,
+                        age = 25,
+                        activityLevel = "Moderate",
+                        targetWeight = 65.0,
+                        goalType = "MAINTAIN",
+                        bmr = 1500,
+                        tdee = 2000
+                    )
+                    userRepository.registerUser(newUser).getOrThrow()
+
                     _authState.value = _authState.value.copy(
                         isLoading = false,
                         isSignUpSuccess = true
                     )
-                    Log.d("AuthViewModel", "Sign up successful, userId: $userId")
-                }.onFailure { error ->
-                    _authState.value = _authState.value.copy(
-                        isLoading = false,
-                        emailError = error.message ?: "Sign up failed"
-                    )
-                    Log.e("AuthViewModel", "Sign up error", error)
+                    Log.d("AuthViewModel", "Sign up successful, verification required")
                 }
             } catch (e: Exception) {
                 _authState.value = _authState.value.copy(
                     isLoading = false,
-                    emailError = "Sign up failed"
+                    emailError = e.message ?: "Firebase sign up failed"
                 )
                 Log.e("AuthViewModel", "Sign up error", e)
             }
@@ -412,6 +402,35 @@ class AuthViewModel @Inject constructor(
         _authState.value = _authState.value.copy(googleSignInError = null)
     }
     
+    fun resendVerificationEmail() {
+        val email = _authState.value.email
+        val password = _authState.value.password // We need this to auth with Firebase to resend
+        
+        if (email.isBlank() || password.isBlank()) return
+        
+        _authState.value = _authState.value.copy(isLoading = true)
+        
+        viewModelScope.launch {
+            try {
+                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                // Must sign in to resend the verification email to prevent spam/abuse
+                val result = auth.signInWithEmailAndPassword(email, password).await()
+                result.user?.sendEmailVerification()?.await()
+                
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    emailError = "Verification email sent. Please check your inbox.",
+                    showResendVerification = false // Hide button after sending
+                )
+            } catch (e: Exception) {
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    emailError = "Failed to resend verification: ${e.message}"
+                )
+            }
+        }
+    }
+    
     fun resetSuccessFlags() {
         _authState.value = _authState.value.copy(
             isLoginSuccess = false,
@@ -422,6 +441,33 @@ class AuthViewModel @Inject constructor(
     }
     
     fun resetPassword(email: String) {
-        Log.d("AuthViewModel", "Reset password for: $email")
+        val trimmedEmail = email.trim()
+        val emailError = ValidationUtils.validateEmail(trimmedEmail)
+        
+        if (emailError != null) {
+            _authState.value = _authState.value.copy(emailError = emailError)
+            return
+        }
+
+        Log.d("AuthViewModel", "Reset password for: $trimmedEmail")
+        _authState.value = _authState.value.copy(isLoading = true)
+
+        viewModelScope.launch {
+            try {
+                com.google.firebase.auth.FirebaseAuth.getInstance().sendPasswordResetEmail(trimmedEmail).await()
+                // Always show success for security purposes
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    isLoginSuccess = true // We overload this flag to trigger the success dialog
+                )
+            } catch (e: Exception) {
+                // Still show success to prevent email sweeping, but log the real error
+                Log.e("AuthViewModel", "Failed to send reset email", e)
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    isLoginSuccess = true
+                )
+            }
+        }
     }
 }

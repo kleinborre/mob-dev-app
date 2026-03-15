@@ -294,6 +294,12 @@ fun SettingsScreen(
                             onClick = viewModel::showChangeGoalDialog
                         )
                         
+                        // Phase 4: Sprint 3.1
+                        CalorEaseButton(
+                            text = "Update Credentials",
+                            onClick = { navController.navigate(Screen.UpdateCredentials.route) }
+                        )
+                        
                         CalorEaseButton(
                             text = "Sign Out",
                             onClick = viewModel::showLogoutConfirmDialog,

@@ -29,7 +29,8 @@ fun CalorEaseTextField(
     errorMessage: String = "",
     leadingIcon: ImageVector? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
-    singleLine: Boolean = true
+    singleLine: Boolean = true,
+    enabled: Boolean = true
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
 
@@ -44,6 +45,7 @@ fun CalorEaseTextField(
                 .heightIn(min = 56.dp),
             isError = isError,
             singleLine = singleLine,
+            enabled = enabled,
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = DarkTurquoise,

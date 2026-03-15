@@ -22,6 +22,10 @@ data class UserEntity(
 
     // Google Sign-In link — null if user never signed in with Google
     val googleId: String? = null,
+    
+    // SMTP Phase 3
+    val isEmailVerified: Boolean = false,
+    
     // Profile
     val nickname: String,
     val role: String = "USER", // "USER" or "ADMIN"

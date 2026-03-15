@@ -130,32 +130,26 @@ fun AdminSettingsScreen(
                 }
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Sign Out Button
+            // Phase 4: Sprint 3.1 - Account Actions
             CalorEaseCard {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Sign Out",
+                        text = "Account Actions",
                         style = MaterialTheme.typography.titleMedium,
                         fontFamily = Poppins,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface  // PHASE 4: Black instead of error
+                        color = MaterialTheme.colorScheme.onSurface 
                     )
                     
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Text(
-                        text = "Log out from your admin account",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = Poppins
+                    CalorEaseButton(
+                        text = "Update Credentials",
+                        onClick = { navController.navigate(Screen.UpdateCredentials.route) }
                     )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
                     
                     CalorEaseButton(
                         text = "Sign Out",

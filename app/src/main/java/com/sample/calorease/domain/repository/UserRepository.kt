@@ -52,4 +52,11 @@ interface UserRepository {
 
     /** Link a Google account UID to an existing local user row. */
     suspend fun linkGoogleId(userId: Int, googleId: String): Result<Unit>
+
+    /** Phase 3: Update local email verification status */
+    suspend fun updateEmailVerified(userId: Int, isVerified: Boolean): Result<Unit>
+
+    /** Phase 4: Update user credentials directly */
+    suspend fun updateUserEmail(userId: Int, email: String): Result<Unit>
+    suspend fun updateUserPassword(userId: Int, password: String): Result<Unit>
 }

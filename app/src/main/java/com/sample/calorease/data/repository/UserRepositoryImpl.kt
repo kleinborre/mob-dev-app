@@ -80,4 +80,19 @@ class UserRepositoryImpl @Inject constructor(
         dao.updateGoogleId(userId, googleId)
         Result.success(Unit)
     } catch (e: Exception) { Result.failure(e) }
+    
+    override suspend fun updateEmailVerified(userId: Int, isVerified: Boolean): Result<Unit> = try {
+        dao.updateEmailVerified(userId, isVerified)
+        Result.success(Unit)
+    } catch (e: Exception) { Result.failure(e) }
+
+    override suspend fun updateUserEmail(userId: Int, email: String): Result<Unit> = try {
+        dao.updateUserEmail(userId, email)
+        Result.success(Unit)
+    } catch (e: Exception) { Result.failure(e) }
+
+    override suspend fun updateUserPassword(userId: Int, password: String): Result<Unit> = try {
+        dao.updateUserPassword(userId, password)
+        Result.success(Unit)
+    } catch (e: Exception) { Result.failure(e) }
 }

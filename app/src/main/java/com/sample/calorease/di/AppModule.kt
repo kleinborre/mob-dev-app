@@ -1,4 +1,4 @@
-﻿package com.sample.calorease.di
+package com.sample.calorease.di
 
 import android.content.Context
 import androidx.room.Room
@@ -58,7 +58,11 @@ object AppModule {
             AppDatabase::class.java,
             "calorease_db"
         )
-            .addMigrations(AppDatabase.MIGRATION_12_13, AppDatabase.MIGRATION_13_14)
+            .addMigrations(
+                AppDatabase.MIGRATION_12_13, 
+                AppDatabase.MIGRATION_13_14,
+                AppDatabase.MIGRATION_14_15
+            )
             // NOTE: fallbackToDestructiveMigration() has been intentionally REMOVED
             // to prevent silent data wipes. If you add a new DB version, add a
             // Migration object in AppDatabase.kt first.
@@ -96,12 +100,12 @@ object AppModule {
                 (email, password, nickname, role, isActive, accountStatus,
                  adminAccess, isSuperAdmin, accountCreated,
                  gender, height, weight, age, activityLevel,
-                 targetWeight, goalType, bmr, tdee, googleId)
+                 targetWeight, goalType, bmr, tdee, googleId, isEmailVerified)
                 VALUES
                 ('test@calorease.com', 'Test123!', 'Test User', 'USER', 1, 'active',
                  0, 0, $now,
                  'Male', 175, 75.0, 28, 'Moderate',
-                 70.0, 'LOSE', 1759, 2726, NULL)
+                 70.0, 'LOSE', 1759, 2726, NULL, 1)
             """.trimIndent())
 
             // Admin user: male, 35y, 180cm, 80kg, goal MAINTAIN
@@ -112,12 +116,12 @@ object AppModule {
                 (email, password, nickname, role, isActive, accountStatus,
                  adminAccess, isSuperAdmin, accountCreated,
                  gender, height, weight, age, activityLevel,
-                 targetWeight, goalType, bmr, tdee, googleId)
+                 targetWeight, goalType, bmr, tdee, googleId, isEmailVerified)
                 VALUES
                 ('admin@calorease.com', 'Admin123!', 'Admin User', 'ADMIN', 1, 'active',
                  1, 1, $now,
                  'Male', 180, 80.0, 35, 'Moderate',
-                 80.0, 'MAINTAIN', 1880, 2914, NULL)
+                 80.0, 'MAINTAIN', 1880, 2914, NULL, 1)
             """.trimIndent())
 
             // user_stats for test user (userId = 1) - onboardingCompleted = 1 to skip onboarding

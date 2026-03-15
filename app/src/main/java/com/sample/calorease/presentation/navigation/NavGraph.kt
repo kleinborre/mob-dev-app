@@ -145,6 +145,15 @@ fun NavGraph(
             popExitTransition  = { crossExit() }
         ) { AdminSettingsScreen(navController = navController) }
 
+        // ── Phase 4 / Sprint 3.1 ──────────────────────────────────
+        composable(
+            route = Screen.UpdateCredentials.route,
+            enterTransition    = { crossEnter() },
+            exitTransition     = { crossExit() },
+            popEnterTransition = { crossEnter() },
+            popExitTransition  = { crossExit() }
+        ) { com.sample.calorease.presentation.screens.UpdateCredentialsScreen(navController = navController) }
+
         // ── Food Logs ─────────────────────────────────────────────
         composable("food_logs") {
             FoodLogsScreen(navController = navController)

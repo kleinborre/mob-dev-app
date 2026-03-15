@@ -21,7 +21,7 @@ import com.sample.calorease.data.model.UserStats
  */
 @Database(
     entities      = [UserEntity::class, DailyEntryEntity::class, UserStats::class],
-    version       = 14,
+    version       = 15,
     exportSchema  = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -70,6 +70,16 @@ abstract class AppDatabase : RoomDatabase() {
                 // Simple ALTER TABLE — adding a nullable column is always backward safe in SQLite
                 db.execSQL("ALTER TABLE `users` ADD COLUMN `googleId` TEXT")
                 android.util.Log.d("AppDatabase", "Migration 13→14: added googleId column to users")
+            }
+        }
+        /**
+         * Migration 14 → 15
+         * - users: add `isEmailVerified` INTEGER default 0 (false)
+         */
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `users` ADD COLUMN `isEmailVerified` INTEGER NOT NULL DEFAULT 0")
+                android.util.Log.d("AppDatabase", "Migration 14→15: added isEmailVerified column to users")
             }
         }
     }
