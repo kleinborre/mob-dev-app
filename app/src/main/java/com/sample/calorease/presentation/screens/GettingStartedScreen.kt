@@ -25,6 +25,7 @@ import com.sample.calorease.R
 import com.sample.calorease.presentation.components.CalorEaseButton
 import com.sample.calorease.presentation.components.CalorEaseOutlinedButton
 import com.sample.calorease.presentation.navigation.Screen
+import com.sample.calorease.presentation.theme.AestheticWhite
 import com.sample.calorease.presentation.theme.DarkTurquoise
 import com.sample.calorease.presentation.theme.Poppins
 

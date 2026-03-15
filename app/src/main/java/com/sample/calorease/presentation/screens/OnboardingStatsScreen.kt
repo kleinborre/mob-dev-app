@@ -24,6 +24,7 @@ import com.sample.calorease.presentation.components.CalorEaseOutlinedButton
 import com.sample.calorease.presentation.components.CalorEaseProgressBar
 import com.sample.calorease.presentation.components.CalorEaseTextField
 import com.sample.calorease.presentation.navigation.Screen
+import com.sample.calorease.presentation.theme.DeepTeal
 import com.sample.calorease.presentation.theme.DarkTurquoise
 import com.sample.calorease.presentation.theme.Poppins
 import com.sample.calorease.presentation.viewmodel.OnboardingViewModel
@@ -409,7 +410,7 @@ fun BirthdaySelector(
                     )
                 },
                 colors = DatePickerDefaults.colors(
-                    selectedDayContainerColor = DarkTurquoise
+                    selectedDayContainerColor = DeepTeal
                 )
             )
         }

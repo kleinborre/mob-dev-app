@@ -1,5 +1,6 @@
 package com.sample.calorease.presentation.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -9,7 +10,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color  // PHASE 3: For red delete buttons
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -21,9 +23,18 @@ import com.sample.calorease.presentation.components.CalorEaseButton
 import com.sample.calorease.presentation.components.CalorEaseCard
 import com.sample.calorease.presentation.components.CalorEaseTextField
 import com.sample.calorease.presentation.navigation.Screen
+import com.sample.calorease.presentation.theme.AestheticWhite
+import com.sample.calorease.presentation.theme.DeepTeal
 import com.sample.calorease.presentation.theme.DarkTurquoise
+import com.sample.calorease.presentation.theme.OffWhite
+import com.sample.calorease.presentation.theme.PaperWhite
 import com.sample.calorease.presentation.theme.Poppins
+import com.sample.calorease.presentation.theme.SubtleGray
 import com.sample.calorease.presentation.viewmodel.SettingsViewModel
+
+private val settingsGradient = Brush.verticalGradient(
+    colors = listOf(AestheticWhite, PaperWhite, OffWhite, SubtleGray)
+)
 
 @Composable
 fun SettingsScreen(
@@ -44,8 +55,10 @@ fun SettingsScreen(
     }
     
     Scaffold(
-        bottomBar = { BottomNavigationBar(navController = navController) }
+        bottomBar      = { BottomNavigationBar(navController = navController) },
+        containerColor = Color.Transparent
     ) { paddingValues ->
+
         if (state.isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -75,6 +88,11 @@ fun SettingsScreen(
                 
                 // Comprehensive User Stats Card with BMI
                 CalorEaseCard {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
                     Text(
                         text = "Your Profile",
                         style = MaterialTheme.typography.titleMedium,
@@ -191,6 +209,7 @@ fun SettingsScreen(
                         "Daily Calorie Target",
                         "${state.userStats?.goalCalories?.toInt() ?: 0} cal"
                     )
+                    } // end Column
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -198,7 +217,11 @@ fun SettingsScreen(
                 // Phase 4: Admin Mode Button (only for admin users)
                 if (state.adminAccess) {
                     CalorEaseCard {
-                        Column(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
                             Text(
                                 text = "Admin Access",
                                 style = MaterialTheme.typography.titleMedium,
@@ -220,7 +243,6 @@ fun SettingsScreen(
                             CalorEaseButton(
                                 text = "Switch to Admin Mode",
                                 onClick = { showSwitchToAdminConfirm = true },
-                                backgroundColor = MaterialTheme.colorScheme.onSurface  // Switched to black
                             )
                         }
                     }
@@ -231,7 +253,9 @@ fun SettingsScreen(
                 // Phase G: Account Actions Card (Edit Weight, Change Goal, Sign Out)
                 CalorEaseCard {
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
@@ -255,7 +279,6 @@ fun SettingsScreen(
                         CalorEaseButton(
                             text = "Sign Out",
                             onClick = viewModel::showLogoutConfirmDialog,
-                            backgroundColor = DarkTurquoise  // Switched to turquoise
                         )
                     }
                 }
@@ -265,7 +288,9 @@ fun SettingsScreen(
                 // Phase G: Danger Zone Card (separate)
                 CalorEaseCard {
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
@@ -286,7 +311,7 @@ fun SettingsScreen(
                         CalorEaseButton(
                             text = "Delete Account",
                             onClick = viewModel::showDeleteConfirmDialog,
-                            backgroundColor = MaterialTheme.colorScheme.error
+                            gradientColors = listOf(androidx.compose.ui.graphics.Color(0xFFEF5350), androidx.compose.ui.graphics.Color(0xFFD32F2F), androidx.compose.ui.graphics.Color(0xFFB71C1C))
                         )
                     }
                 }
@@ -609,7 +634,7 @@ fun SettingsScreen(
                 Button(
                     onClick = viewModel::logout,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.onSurface  // PART 3: Black button
+                        containerColor = DeepTeal  // PART 3: Black button
                     )
                 ) {
                     Text(
@@ -744,7 +769,7 @@ fun SettingsScreen(
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = DarkTurquoise
+                        containerColor = DeepTeal
                     )
                 ) {
                     Text("Switch", fontFamily = Poppins)

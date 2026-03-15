@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -25,9 +26,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.sample.calorease.presentation.components.BottomNavigationBar
 import com.sample.calorease.presentation.components.CalorEaseCard
+import com.sample.calorease.presentation.theme.AestheticWhite
 import com.sample.calorease.presentation.theme.DarkTurquoise
+import com.sample.calorease.presentation.theme.OffWhite
+import com.sample.calorease.presentation.theme.PaperWhite
 import com.sample.calorease.presentation.theme.Poppins
+import com.sample.calorease.presentation.theme.SubtleGray
 import com.sample.calorease.presentation.viewmodel.StatsViewModel
+
+private val statsGradient = Brush.verticalGradient(
+    colors = listOf(AestheticWhite, PaperWhite, OffWhite, SubtleGray)
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,8 +47,14 @@ fun StatsScreen(
     val state by viewModel.statsState.collectAsState()
     
     Scaffold(
-        bottomBar = { BottomNavigationBar(navController = navController) }
+        bottomBar      = { BottomNavigationBar(navController = navController) },
+        containerColor = Color.Transparent
     ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(statsGradient)
+        ) {
         if (state.isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -88,15 +103,11 @@ fun StatsScreen(
                 
                 Spacer(modifier = Modifier.height(32.dp))
                 
-                // Chart Card
-                Card(
+                // Chart Card — glassmorphism
+                CalorEaseCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(350.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                    ),
-                    shape = RoundedCornerShape(24.dp)
+                        .height(350.dp)
                 ) {
                     CalorieBarChart(
                         data = state.weekData.map { it.dayLabel to it.calories },
@@ -147,8 +158,9 @@ fun StatsScreen(
                     )
                 }
             }
-        }
-    }
+        }   // end else
+        }   // end Box (gradient background)
+    }   // end Scaffold
 }
 
 @Composable

@@ -27,6 +27,8 @@ import com.sample.calorease.presentation.components.CalorEaseButton
 import com.sample.calorease.presentation.components.AdminBottomNavigationBar
 import com.sample.calorease.presentation.components.CalorEaseCard
 import com.sample.calorease.presentation.navigation.Screen
+import com.sample.calorease.presentation.theme.AestheticWhite
+import com.sample.calorease.presentation.theme.DeepTeal
 import com.sample.calorease.presentation.theme.DarkTurquoise
 import com.sample.calorease.presentation.theme.Poppins
 import com.sample.calorease.presentation.viewmodel.AdminUsersViewModel
@@ -253,8 +255,8 @@ fun UserTableRow(
     CalorEaseCard {
         Row(
             modifier = Modifier
-
-.fillMaxWidth(),
+                .fillMaxWidth()
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -464,7 +466,7 @@ fun EditUserDialog(
         confirmButton = {
             Button(
                 onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = DarkTurquoise)
+                colors = ButtonDefaults.buttonColors(containerColor = DeepTeal)
             ) {
                 Text("Save", fontFamily = Poppins)
             }

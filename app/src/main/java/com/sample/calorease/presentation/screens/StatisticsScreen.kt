@@ -74,7 +74,7 @@ fun StatisticsScreen(
                 
                 Spacer(modifier = Modifier.height(24.dp))
                 
-                CalorEaseCard {
+                CalorEaseCard(innerPadding = 16.dp) {
                     Text(
                         text = "Calories Consumed (Last 7 Days)",
                         style = MaterialTheme.typography.titleMedium,
@@ -131,7 +131,7 @@ fun StatisticsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 // Statistics Summary
-                CalorEaseCard {
+                CalorEaseCard(innerPadding = 16.dp) {
                     Text(
                         text = "Summary",
                         style = MaterialTheme.typography.titleMedium,

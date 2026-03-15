@@ -2,78 +2,115 @@ package com.sample.calorease.presentation.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ──────────────────────────────────────────
-// Brand Colors
-// ──────────────────────────────────────────
-val DarkTurquoise  = Color(0xFF00CED1)   // Primary — corrected to spec #00CED1
-val TurquoiseLight = Color(0xFF33D9DC)   // Lighter tint for gradient starts
-val TurquoiseDark  = Color(0xFF009496)   // Deeper tint for gradient ends / pressed state
-val TurquoiseGlass = Color(0x3300CED1)   // Semi-transparent for glassy overlays (20% alpha)
+// ──────────────────────────────────────────────────────────────────────────
+// Brand Primary — Teal #006874 (lighter, clearly visible — used for buttons, accents, FAB)
+// ──────────────────────────────────────────────────────────────────────────
+val DeepTeal        = Color(0xFF006874)   // Primary — all buttons & accents (lightened from #00303D)
+val DeepTealLight   = Color(0xFF009BAA)   // Gradient top (hover / lighter shimmer)
+val DeepTealDark    = Color(0xFF004E5B)   // Gradient bottom (pressed / deeper)
+val DeepTealGlass   = Color(0x22006874)   // 15% alpha glass tint
 
-// ──────────────────────────────────────────
-// Accent / Utility Colors
-// ──────────────────────────────────────────
-val CoralRed   = Color(0xFFFF6B6B)   // Error / destructive action hint
-val MintGreen  = Color(0xFF3EB489)   // Success state
-val SoftAmber  = Color(0xFFFFB347)   // Warning / caution
-val LightBlue  = Color(0xFF87CEEB)   // Info
+// Alias so all existing DarkTurquoise references continue to compile
+val DarkTurquoise   = DeepTeal
 
-// ──────────────────────────────────────────
-// Neutral / Surface Colors
-// ──────────────────────────────────────────
-val White         = Color(0xFFFFFFFF)
-val Black         = Color(0xFF000000)
-val SoftGray      = Color(0xFFF5F7FA)   // Light background
-val CardSurface   = Color(0xFFFAFAFA)   // Slightly off-white card bg
-val CharcoalGray  = Color(0xFF2C3E50)   // Dark text on light bg
-val DividerColor  = Color(0xFFE0E0E0)   // Dividers & outlines
+// ──────────────────────────────────────────────────────────────────────────
+// Accent shades for hero card gradient
+// ──────────────────────────────────────────────────────────────────────────
+val TealAccent      = Color(0xFF00505F)
+val TealHighlight   = Color(0xFF006070)
+val CoralRed        = Color(0xFFE57373)   // Over-calorie hero card
+val MintGreen       = Color(0xFF43A047)
 
-// Dark mode surfaces
-val DarkBackground    = Color(0xFF0F1923)   // Deep dark bg
-val DarkSurface       = Color(0xFF1A2535)   // Card surfaces in dark mode
-val DarkSurfaceVariant = Color(0xFF243040)  // Elevated surfaces
-val OnDarkSurface     = Color(0xFFE0F7F7)   // Text on dark surfaces
+// ──────────────────────────────────────────────────────────────────────────
+// Aesthetic White / Gray palette (backgrounds + surfaces)
+// ──────────────────────────────────────────────────────────────────────────
+val AestheticWhite  = Color(0xFFF8F9FA)   // App background — warm white
+val PaperWhite      = Color(0xFFFCFCFD)   // Card surface — slightly cooler
+val GlassWhite      = Color(0xE6FFFFFF)   // 90% white glass card fill
+val GlassWhiteLight = Color(0xB3FFFFFF)   // 70% white lighter glass layer
+val OffWhite        = Color(0xFFF0F2F5)   // Subtle section divider
+val SilverGray      = Color(0xFFCDD5DE)   // Borders, outlines
+val MediumGray      = Color(0xFF8A95A0)   // Secondary / hint text
+val SubtleGray      = Color(0xFFDDE3EA)   // Very light card background
 
-// Glassy surface overlays
-val GlassSurfaceLight = Color(0xCCFFFFFF)   // 80% white — glassy card in light mode
-val GlassSurfaceDark  = Color(0xCC1A2535)   // 80% dark surface — glassy card in dark mode
+// ──────────────────────────────────────────────────────────────────────────
+// Text colors — aesthetic dark, not pure black
+// ──────────────────────────────────────────────────────────────────────────
+val TextPrimary    = Color(0xFF1A2332)   // Deep navy-charcoal for headings
+val TextSecondary  = Color(0xFF4A5568)   // Slate gray for body text
+val TextHint       = Color(0xFF8A95A0)   // Placeholder / hint
+val TextOnDark     = Color(0xFFF0F4F8)   // Text rendered on dark backgrounds
 
-// Gender button colors (design-specified)
-val FemaleRed  = Color(0xFFC62828)   // Dark red for female gender selection
-val MaleTeal   = DarkTurquoise       // Teal for male gender selection
+// Aliases for backward-compatible legacy code
+val CharcoalGray   = TextPrimary
+val White          = Color(0xFFFFFFFF)
+val Black          = Color(0xFF000000)
+val SoftGray       = OffWhite
 
-// ──────────────────────────────────────────
-// Light Color Scheme Roles
-// ──────────────────────────────────────────
-val LightPrimary           = DarkTurquoise
-val LightOnPrimary         = White
-val LightPrimaryContainer  = Color(0xFFE0FAFA)
-val LightOnPrimaryContainer = TurquoiseDark
-val LightSecondary         = TurquoiseDark
-val LightOnSecondary       = White
-val LightBackground        = SoftGray
-val LightSurface           = White
-val LightOnSurface         = CharcoalGray
-val LightSurfaceVariant    = Color(0xFFEEF6F6)
-val LightOnSurfaceVariant  = Color(0xFF4A6572)
-val LightOutline           = Color(0xFFB0BEC5)
-val LightError             = CoralRed
-val LightOnError           = White
+// ──────────────────────────────────────────────────────────────────────────
+// Semantic Status Colors
+// ──────────────────────────────────────────────────────────────────────────
+val SuccessGreen   = Color(0xFF2E7D32)
+val ErrorRed       = Color(0xFFD32F2F)
+val WarningAmber   = Color(0xFFEF6C00)
+val InfoBlue       = Color(0xFF1565C0)
 
-// ──────────────────────────────────────────
-// Dark Color Scheme Roles
-// ──────────────────────────────────────────
-val DarkPrimary            = TurquoiseLight
-val DarkOnPrimary          = Color(0xFF003535)
-val DarkPrimaryContainer   = TurquoiseDark
-val DarkOnPrimaryContainer = Color(0xFFB2FFFF)
-val DarkSecondary          = TurquoiseLight
-val DarkOnSecondary        = Color(0xFF003535)
-val DarkSurfaceColor       = DarkSurface
-val DarkOnSurfaceColor     = OnDarkSurface
+// ──────────────────────────────────────────────────────────────────────────
+// Dark mode surface colors
+// ──────────────────────────────────────────────────────────────────────────
+val DarkBackground       = Color(0xFF0F1923)
+val DarkSurface          = Color(0xFF1A2535)
+val DarkSurfaceVariant   = Color(0xFF243040)
+val OnDarkSurface        = Color(0xFFE8EDF2)
+val DarkGlassSurface     = Color(0xCC1A2535)
+
+// ──────────────────────────────────────────────────────────────────────────
+// Light Color Scheme (Material 3 semantic roles)
+// ──────────────────────────────────────────────────────────────────────────
+val LightPrimary            = DeepTeal
+val LightOnPrimary          = Color(0xFFFFFFFF)
+val LightPrimaryContainer   = Color(0xFFCFE9EE)
+val LightOnPrimaryContainer = DeepTealDark
+val LightSecondary          = TealAccent
+val LightOnSecondary        = Color(0xFFFFFFFF)
+val LightBackground         = AestheticWhite
+val LightSurface            = PaperWhite
+val LightOnSurface          = TextPrimary
+val LightSurfaceVariant     = OffWhite
+val LightOnSurfaceVariant   = TextSecondary
+val LightOutline            = SilverGray
+val LightError              = ErrorRed
+val LightOnError            = Color(0xFFFFFFFF)
+
+// ──────────────────────────────────────────────────────────────────────────
+// Dark Color Scheme (Material 3 semantic roles)
+// ──────────────────────────────────────────────────────────────────────────
+val DarkPrimary             = Color(0xFF4DCCE0)
+val DarkOnPrimary           = Color(0xFF001F28)
+val DarkPrimaryContainer    = DeepTeal
+val DarkOnPrimaryContainer  = Color(0xFFB2EBF2)
+val DarkSecondary           = Color(0xFF4DCCE0)
+val DarkOnSecondary         = Color(0xFF001F28)
+val DarkSurfaceColor        = DarkSurface
+val DarkOnSurfaceColor      = OnDarkSurface
 val DarkSurfaceVariantColor = DarkSurfaceVariant
-val DarkOnSurfaceVariant   = Color(0xFF90A4AE)
-val DarkOutline            = Color(0xFF455A64)
-val DarkError              = Color(0xFFFF8A80)
-val DarkOnError            = Color(0xFF690005)
+val DarkOnSurfaceVariant    = MediumGray
+val DarkOutline             = Color(0xFF455A64)
+val DarkError               = Color(0xFFEF9A9A)
+val DarkOnError             = Color(0xFF690005)
 
+// ──────────────────────────────────────────────────────────────────────────
+// Gender-selection (onboarding)
+// ──────────────────────────────────────────────────────────────────────────
+val FemaleRed = Color(0xFFE91E63)
+val MaleTeal  = DeepTeal
+val SoftAmber = WarningAmber
+val LightBlue = InfoBlue
+
+// Glass surface overlays (used by GradientBackground + CalorEaseCard)
+val GlassSurfaceLight = GlassWhite
+val GlassSurfaceDark  = DarkGlassSurface
+val CardSurface       = Color(0xFFFFFFFF) // Pure white — always visible on any background
+val TurquoiseGlass    = DeepTealGlass
+val TurquoiseDark     = DeepTealDark
+val TurquoiseLight    = DeepTealLight

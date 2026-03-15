@@ -17,6 +17,8 @@ import com.sample.calorease.presentation.components.CalorEaseButton
 import com.sample.calorease.presentation.components.AdminBottomNavigationBar
 import com.sample.calorease.presentation.components.CalorEaseCard
 import com.sample.calorease.presentation.navigation.Screen
+import com.sample.calorease.presentation.theme.AestheticWhite
+import com.sample.calorease.presentation.theme.DeepTeal
 import com.sample.calorease.presentation.theme.DarkTurquoise
 import com.sample.calorease.presentation.theme.Poppins
 
@@ -81,7 +83,11 @@ fun AdminSettingsScreen(
             
             // User Mode Button
             CalorEaseCard {
-                Column(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
                     Text(
                         text = "User Mode",
                         style = MaterialTheme.typography.titleMedium,
@@ -103,7 +109,6 @@ fun AdminSettingsScreen(
                     CalorEaseButton(
                         text = "Switch to User Mode",
                         onClick = { showSwitchConfirm = true },
-                        backgroundColor = MaterialTheme.colorScheme.onSurface  // Switched to black
                     )
                 }
             }
@@ -112,7 +117,11 @@ fun AdminSettingsScreen(
             
             // Sign Out Button
             CalorEaseCard {
-                Column(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
                     Text(
                         text = "Sign Out",
                         style = MaterialTheme.typography.titleMedium,
@@ -134,7 +143,6 @@ fun AdminSettingsScreen(
                     CalorEaseButton(
                         text = "Sign Out",
                         onClick = { showSignOutConfirm = true },
-                        backgroundColor = DarkTurquoise  // Switched to turquoise
                     )
                 }
             }
@@ -169,7 +177,7 @@ fun AdminSettingsScreen(
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = DarkTurquoise
+                        containerColor = DeepTeal
                     )
                 ) {
                     Text("Switch", fontFamily = Poppins)
@@ -212,7 +220,7 @@ fun AdminSettingsScreen(
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.onSurface  // PART 3: Black button
+                        containerColor = DeepTeal  // PART 3: Black button
                     )
                 ) {
                     Text("Sign Out", fontFamily = Poppins)

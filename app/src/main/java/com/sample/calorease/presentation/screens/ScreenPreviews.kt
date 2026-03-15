@@ -39,6 +39,7 @@ import com.sample.calorease.presentation.components.CalorEaseButton
 import com.sample.calorease.presentation.components.CalorEaseOutlinedButton
 import com.sample.calorease.presentation.components.CalorEaseTextField
 import com.sample.calorease.presentation.theme.CalorEaseTheme
+import com.sample.calorease.presentation.theme.DeepTeal
 import com.sample.calorease.presentation.theme.DarkTurquoise
 import com.sample.calorease.presentation.theme.Poppins
 
@@ -295,7 +296,7 @@ private fun OnboardingStatsScreenPreview() {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Button(
                         onClick = {},
-                        colors = ButtonDefaults.buttonColors(containerColor = DarkTurquoise),
+                        colors = ButtonDefaults.buttonColors(containerColor = DeepTeal),
                         modifier = Modifier.weight(1f)
                     ) { Text("Male", fontFamily = Poppins) }
                     OutlinedButton(onClick = {}, modifier = Modifier.weight(1f)) {
@@ -434,7 +435,7 @@ private fun DashboardScreenPreview() {
                 // Progress card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = DarkTurquoise)
+                    colors = CardDefaults.cardColors(containerColor = DeepTeal)
                 ) {
                     Column(modifier = Modifier.padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally) {
@@ -535,7 +536,7 @@ private fun SettingsScreenPreview() {
                 Spacer(modifier = Modifier.height(24.dp))
                 Button(
                     onClick = {},
-                    colors = ButtonDefaults.buttonColors(containerColor = DarkTurquoise),
+                    colors = ButtonDefaults.buttonColors(containerColor = DeepTeal),
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Sign Out", fontFamily = Poppins) }
             }
@@ -782,14 +783,14 @@ private fun AdminSettingsScreenPreview() {
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = {},
-                    colors = ButtonDefaults.buttonColors(containerColor = DarkTurquoise),
+                    colors = ButtonDefaults.buttonColors(containerColor = DeepTeal),
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Switch to User Mode", fontFamily = Poppins) }
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = {},
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.onSurface),
+                        containerColor = DeepTeal),
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Sign Out", fontFamily = Poppins) }
             }

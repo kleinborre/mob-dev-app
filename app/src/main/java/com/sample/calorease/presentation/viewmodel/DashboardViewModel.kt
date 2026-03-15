@@ -8,9 +8,13 @@ import com.sample.calorease.data.session.SessionManager
 import com.sample.calorease.domain.repository.CalorieRepository
 import com.sample.calorease.domain.repository.UserRepository
 import com.sample.calorease.domain.usecase.CalculatorUseCase
+import com.sample.calorease.presentation.ui.UiEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -26,9 +30,10 @@ data class DashboardState(
     val remainingCalories: Int = 0,
     val progress: Float = 0f,
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val error: String? = null,
     
-    // BUGFIX Issue 8: Add entry dialog persistence
+    // Add entry dialog persistence
     val showAddDialog: Boolean = false,
     val tempFoodName: String = "",
     val tempCalories: String = "",
@@ -46,6 +51,9 @@ class DashboardViewModel @Inject constructor(
     
     private val _dashboardState = MutableStateFlow(DashboardState())
     val dashboardState: StateFlow<DashboardState> = _dashboardState.asStateFlow()
+
+    private val _uiEvent = MutableSharedFlow<UiEvent>()
+    val uiEvent: SharedFlow<UiEvent> = _uiEvent.asSharedFlow()
     
     init {
         loadDashboardData()
@@ -128,21 +136,21 @@ class DashboardViewModel @Inject constructor(
                 val todayTimestamp = getTodayTimestamp()
                 
                 val entry = DailyEntryEntity(
-                    userId = userId,
-                    date = todayTimestamp,
-                    foodName = foodName,
-                    calories = calories,
-                    mealType = mealType
+                    userId    = userId,
+                    date      = todayTimestamp,
+                    foodName  = foodName,
+                    calories  = calories,
+                    mealType  = mealType
                 )
                 
                 calorieRepository.addDailyEntry(entry)
-                
-                // Refresh dashboard
                 loadDashboardData()
+                _uiEvent.emit(UiEvent.ShowSuccess("success:$foodName added successfully!"))
             } catch (e: Exception) {
                 _dashboardState.value = _dashboardState.value.copy(
                     error = "Failed to add entry: ${e.message}"
                 )
+                _uiEvent.emit(UiEvent.ShowError("Failed to add entry"))
             }
         }
     }
@@ -151,30 +159,32 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 calorieRepository.deleteDailyEntry(entryId)
-                
-                // Refresh dashboard
                 loadDashboardData()
+                _uiEvent.emit(UiEvent.ShowSuccess("success:Entry removed"))
             } catch (e: Exception) {
-                _dashboardState.value = _dashboardState.value.copy(
-                    error = "Failed to delete entry: ${e.message}"
-                )
+                _uiEvent.emit(UiEvent.ShowError("Failed to delete entry"))
             }
         }
     }
     
-    // Update food entry
     fun updateFoodEntry(entry: DailyEntryEntity) {
         viewModelScope.launch {
             try {
                 calorieRepository.updateDailyEntry(entry)
-                
-                // Refresh dashboard
                 loadDashboardData()
+                _uiEvent.emit(UiEvent.ShowSuccess("success:${entry.foodName} updated"))
             } catch (e: Exception) {
-                _dashboardState.value = _dashboardState.value.copy(
-                    error = "Failed to update entry: ${e.message}"
-                )
+                _uiEvent.emit(UiEvent.ShowError("Failed to update entry"))
             }
+        }
+    }
+
+    /** Pull-to-refresh — sets isRefreshing while fetching, then resets it. */
+    fun refreshDashboard() {
+        viewModelScope.launch {
+            _dashboardState.value = _dashboardState.value.copy(isRefreshing = true)
+            loadDashboardData()
+            _dashboardState.value = _dashboardState.value.copy(isRefreshing = false)
         }
     }
     

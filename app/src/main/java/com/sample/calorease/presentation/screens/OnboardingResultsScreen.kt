@@ -1,4 +1,4 @@
-﻿package com.sample.calorease.presentation.screens
+package com.sample.calorease.presentation.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
@@ -96,7 +96,7 @@ fun OnboardingResultsScreen(
         Spacer(modifier = Modifier.height(24.dp))
         
         // Results Card
-        CalorEaseCard {
+        CalorEaseCard(innerPadding = 16.dp) {
             ResultRow(label = "BMI", value = "%.1f (%s)".format(state.bmiValue, state.bmiStatus))
             
             Spacer(modifier = Modifier.height(12.dp))

@@ -26,7 +26,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.sample.calorease.presentation.components.AdminBottomNavigationBar
+import com.sample.calorease.presentation.components.CalorEaseCard
 import com.sample.calorease.presentation.navigation.Screen
+import com.sample.calorease.presentation.theme.AestheticWhite
 import com.sample.calorease.presentation.theme.DarkTurquoise
 import com.sample.calorease.presentation.theme.Poppins
 import com.sample.calorease.presentation.viewmodel.AdminStatsViewModel
@@ -122,14 +124,10 @@ fun AdminStatsScreen(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                Card(
+                CalorEaseCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(300.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                    ),
-                    shape = RoundedCornerShape(24.dp)
+                        .height(300.dp)
                 ) {
                     UserSignupBarChart(
                         data = state.signupsByDate,
@@ -152,13 +150,7 @@ fun AdminStatCard(
     color: Color,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = color.copy(alpha = 0.1f)
-        ),
-        shape = RoundedCornerShape(16.dp)
-    ) {
+    CalorEaseCard(modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
