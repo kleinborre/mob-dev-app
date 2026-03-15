@@ -48,7 +48,8 @@ class AuthViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val sessionManager: SessionManager,
     private val calculatorUseCase: CalculatorUseCase,
-    private val legacyRepository: com.sample.calorease.domain.repository.LegacyCalorieRepository
+    private val legacyRepository: com.sample.calorease.domain.repository.LegacyCalorieRepository,
+    private val syncScheduler: com.sample.calorease.domain.sync.SyncScheduler
 ) : ViewModel() {
     
     private val _authState = MutableStateFlow(AuthState())
@@ -188,6 +189,10 @@ class AuthViewModel @Inject constructor(
                         showResendVerification = false
                     )
                     Log.d("AuthViewModel", "Login successful out of Room")
+                    
+                    // Sprint 4 Phase 2: Broker Sync to Firestore upon login natively
+                    syncScheduler.schedulePeriodicSync()
+                    syncScheduler.triggerImmediateSync()
                 }.onFailure { error ->
                     _authState.value = _authState.value.copy(
                         isLoading = false,
@@ -273,6 +278,10 @@ class AuthViewModel @Inject constructor(
                         isSignUpSuccess = true
                     )
                     Log.d("AuthViewModel", "Sign up successful, verification required")
+                    
+                    // Sprint 4 Phase 2: Broker Sync to Firestore upon sign-up natively
+                    syncScheduler.schedulePeriodicSync()
+                    syncScheduler.triggerImmediateSync()
                 }
             } catch (e: Exception) {
                 _authState.value = _authState.value.copy(
@@ -376,6 +385,10 @@ class AuthViewModel @Inject constructor(
                     navigateToOnboarding = !onboardingDone
                 )
                 Log.d("AuthViewModel", "Google login done: onboarding=$onboardingDone")
+
+                // Sprint 4 Phase 2: Broker Sync to Firestore securely via Google identity
+                syncScheduler.schedulePeriodicSync()
+                syncScheduler.triggerImmediateSync()
 
             } catch (e: androidx.credentials.exceptions.NoCredentialException) {
                 _authState.value = _authState.value.copy(

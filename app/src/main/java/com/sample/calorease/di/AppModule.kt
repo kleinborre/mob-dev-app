@@ -29,9 +29,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Singleton
 
+import com.sample.calorease.data.remote.FirestoreService
+import com.sample.calorease.data.remote.FirestoreServiceImpl
+
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
+
+    @Provides
+    @Singleton
+    fun provideFirestoreService(): FirestoreService {
+        return FirestoreServiceImpl()
+    }
 
     @Provides
     @Singleton

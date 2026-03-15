@@ -9,6 +9,7 @@ import com.sample.calorease.domain.repository.CalorieRepository
 import com.sample.calorease.domain.repository.LegacyCalorieRepository
 import com.sample.calorease.domain.repository.UserRepository
 import com.sample.calorease.domain.usecase.CalculatorUseCase
+import com.sample.calorease.domain.sync.SyncScheduler
 import com.sample.calorease.presentation.ui.UiEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -43,7 +44,8 @@ class DashboardViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val sessionManager: SessionManager,
     private val calculatorUseCase: CalculatorUseCase,
-    private val legacyRepository: LegacyCalorieRepository
+    private val legacyRepository: LegacyCalorieRepository,
+    private val syncScheduler: SyncScheduler
 ) : ViewModel() {
 
     private val _dashboardState = MutableStateFlow(DashboardState())
@@ -131,6 +133,9 @@ class DashboardViewModel @Inject constructor(
                 calorieRepository.addDailyEntry(entry)
                 // Flow observer auto-refreshes UI — no manual loadDashboardData() call needed
                 _uiEvent.emit(UiEvent.ShowSuccess("$foodName added successfully!"))
+                
+                // Sprint 4 Phase 2: Broker Sync to Firestore
+                syncScheduler.triggerImmediateSync()
             } catch (e: Exception) {
                 _dashboardState.value = _dashboardState.value.copy(
                     error = "Failed to add entry: ${e.message}"
@@ -146,6 +151,9 @@ class DashboardViewModel @Inject constructor(
                 calorieRepository.deleteDailyEntry(entryId)
                 // Flow observer auto-refreshes UI
                 _uiEvent.emit(UiEvent.ShowSuccess("Entry removed"))
+                
+                // Sprint 4 Phase 2: Broker Sync to Firestore
+                syncScheduler.triggerImmediateSync()
             } catch (e: Exception) {
                 _uiEvent.emit(UiEvent.ShowError("Failed to delete entry"))
             }
@@ -158,6 +166,9 @@ class DashboardViewModel @Inject constructor(
                 calorieRepository.updateDailyEntry(entry)
                 // Flow observer auto-refreshes UI
                 _uiEvent.emit(UiEvent.ShowSuccess("success:${entry.foodName} updated"))
+                
+                // Sprint 4 Phase 2: Broker Sync to Firestore
+                syncScheduler.triggerImmediateSync()
             } catch (e: Exception) {
                 _uiEvent.emit(UiEvent.ShowError("Failed to update entry"))
             }

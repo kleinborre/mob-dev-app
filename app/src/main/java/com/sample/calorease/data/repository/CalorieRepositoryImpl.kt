@@ -54,4 +54,8 @@ class CalorieRepositoryImpl @Inject constructor(
     override suspend fun getDailyEntriesByDateRange(userId: Int, startDate: Long, endDate: Long): Result<List<DailyEntryEntity>> = try {
         Result.success(dao.getDailyEntriesByDateRangeForUser(userId, startDate, endDate))
     } catch (e: Exception) { Result.failure(e) }
+
+    override suspend fun getAllFoodEntriesSortedByDate(userId: Int): Result<List<DailyEntryEntity>> = try {
+        Result.success(dao.getAllFoodEntriesSortedByDate(userId))
+    } catch (e: Exception) { Result.failure(e) }
 }

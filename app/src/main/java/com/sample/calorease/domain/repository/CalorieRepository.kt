@@ -36,4 +36,7 @@ interface CalorieRepository {
 
     /** Get all entries for a user within date range (for Statistics) */
     suspend fun getDailyEntriesByDateRange(userId: Int, startDate: Long, endDate: Long): Result<List<DailyEntryEntity>>
+
+    /** Get ALL entries for a user (for Sprint 4 Remote Sync) */
+    suspend fun getAllFoodEntriesSortedByDate(userId: Int): Result<List<DailyEntryEntity>>
 }

@@ -64,6 +64,11 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.hilt.navigation.compose)
 
+    // WorkManager (Sprint 4 Phase 2 Syncing)
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+    implementation("androidx.hilt:hilt-work:1.2.0")
+    ksp("androidx.hilt:hilt-compiler:1.2.0")
+
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

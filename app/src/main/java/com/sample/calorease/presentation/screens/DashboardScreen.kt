@@ -147,13 +147,25 @@ fun DashboardScreen(
                             fontFamily = Poppins,
                             color      = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                         )
-                        Text(
-                            text       = displayName,
-                            style      = MaterialTheme.typography.headlineSmall,
-                            fontFamily = Poppins,
-                            fontWeight = FontWeight.Bold,
-                            color      = MaterialTheme.colorScheme.onSurface
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text       = displayName,
+                                style      = MaterialTheme.typography.headlineSmall,
+                                fontFamily = Poppins,
+                                fontWeight = FontWeight.Bold,
+                                color      = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            
+                            // Sprint 4 Phase 2: SyncStatus UI Indicator
+                            val isOnline = com.sample.calorease.presentation.util.NetworkUtils.isNetworkAvailable(context)
+                            Icon(
+                                imageVector = if (isOnline) Icons.Default.CloudSync else Icons.Default.CloudOff,
+                                contentDescription = if (isOnline) "Synced" else "Offline",
+                                tint = if (isOnline) DarkTurquoise else Color.Gray,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                 }
 
