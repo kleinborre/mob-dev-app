@@ -1,4 +1,4 @@
-﻿package com.sample.calorease.presentation.viewmodel
+package com.sample.calorease.presentation.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -138,10 +138,19 @@ class AuthViewModel @Inject constructor(
                     // BUGFIX Issue 7: Save last login email for persistence after logout
                     sessionManager.saveLastLoginEmail(user.email)
                     
-                    // PHASE 1: Save initial dashboard mode based on role
-                    val initialMode = if (user.role == "admin") "admin" else "user"
-                    sessionManager.saveLastDashboardMode(initialMode)
-                    Log.d("AuthViewModel", " Saved initial lastDashboardMode=$initialMode (role=${user.role})")
+                    // BUG3 FIX: Preserve last mode across logout/login.
+                    // Only set a default mode if there is no previously saved mode.
+                    // If admin toggled to user before logout, that must be preserved.
+                    val existingMode = sessionManager.getLastDashboardMode()
+                    val modeWasSaved = existingMode != "user" || user.role == "user"
+                    if (!modeWasSaved) {
+                        // No prior preference — set role-based default
+                        val initialMode = if (user.role == "admin") "admin" else "user"
+                        sessionManager.saveLastDashboardMode(initialMode)
+                        Log.d("AuthViewModel", "No prior mode — saved default: $initialMode (role=${user.role})")
+                    } else {
+                        Log.d("AuthViewModel", "Preserved existing mode: $existingMode (role=${user.role})")
+                    }
                     
                     // CRITICAL: Check onboarding to determine destination
                     val userStats = legacyRepository.getUserStats(user.userId)

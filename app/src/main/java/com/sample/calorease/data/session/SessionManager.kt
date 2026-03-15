@@ -112,14 +112,16 @@ class SessionManager @Inject constructor(
      */
     suspend fun clearSession() {
         context.dataStore.edit { preferences ->
-            // Only preserve onboarding flag across logout
+            // Preserve flags that must survive logout
             val hasLoggedIn = preferences[PreferencesKeys.HAS_EVER_LOGGED_IN]
+            val lastMode = preferences[PreferencesKeys.LAST_DASHBOARD_MODE]
             
-            // Clear all preferences (including dashboard mode!)
+            // Clear all session credentials
             preferences.clear()
             
-            // Restore only the "has ever logged in" flag
+            // Restore persistent flags
             hasLoggedIn?.let { preferences[PreferencesKeys.HAS_EVER_LOGGED_IN] = it }
+            lastMode?.let { preferences[PreferencesKeys.LAST_DASHBOARD_MODE] = it }
         }
     }
 
