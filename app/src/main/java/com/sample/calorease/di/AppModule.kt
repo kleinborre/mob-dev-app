@@ -31,10 +31,23 @@ import javax.inject.Singleton
 
 import com.sample.calorease.data.remote.FirestoreService
 import com.sample.calorease.data.remote.FirestoreServiceImpl
+import com.sample.calorease.data.remote.api.AbstractEmailApi
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
+
+    @Provides
+    @Singleton
+    fun provideAbstractEmailApi(): AbstractEmailApi {
+        return Retrofit.Builder()
+            .baseUrl(AbstractEmailApi.BASE_URL)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(AbstractEmailApi::class.java)
+    }
 
     @Provides
     @Singleton

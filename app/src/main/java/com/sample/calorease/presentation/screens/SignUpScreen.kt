@@ -216,7 +216,7 @@ fun SignUpScreen(
 
             CalorEaseTextField(
                 value         = authState.email,
-                onValueChange = viewModel::updateEmail,
+                onValueChange = viewModel::updateSignUpEmail,
                 label         = "Email",
                 placeholder   = "Enter your email",
                 leadingIcon   = Icons.Default.Email,

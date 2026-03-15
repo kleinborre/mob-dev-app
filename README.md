@@ -258,11 +258,17 @@ app/src/main/java/com/sample/calorease/
 - Android SDK 34 (API 34)
 - Kotlin 2.1.0+
 
-### Installation
+### Installation & Setup
 1. Clone the repository
 2. Open in Android Studio
-3. Sync Gradle dependencies
-4. Run on emulator or physical device (Android 8.0+)
+3. **Firebase Setup:**
+   - Create a Firebase Project and enable **Firestore** and **Authentication** (Email/Password & Google Sign-In).
+   - Download the `google-services.json` file and place it inside the `app/` directory.
+4. **Email Deliverability API Setup:**
+   - Register at [Abstract API](https://www.abstractapi.com/api/email-verification-validation-api) for a free tier API Key.
+   - Insert the key into `app/src/main/java/com/sample/calorease/data/remote/api/AbstractEmailApi.kt`.
+5. Sync Gradle dependencies
+6. Run on emulator or physical device (Android 8.0+)
 
 ### First Launch
 1. App opens on **Getting Started** screen (first-time only)

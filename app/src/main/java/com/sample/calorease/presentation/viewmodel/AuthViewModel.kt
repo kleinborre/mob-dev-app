@@ -57,7 +57,8 @@ class AuthViewModel @Inject constructor(
     private val sessionManager: SessionManager,
     private val calculatorUseCase: CalculatorUseCase,
     private val legacyRepository: com.sample.calorease.domain.repository.LegacyCalorieRepository,
-    private val syncScheduler: com.sample.calorease.domain.sync.SyncScheduler
+    private val syncScheduler: com.sample.calorease.domain.sync.SyncScheduler,
+    private val emailValidationRepository: com.sample.calorease.data.repository.EmailValidationRepository
 ) : ViewModel() {
     
     private val _authState = MutableStateFlow(AuthState())
@@ -74,6 +75,33 @@ class AuthViewModel @Inject constructor(
             emailError = null
         )
         Log.d("AuthViewModel", "State updated: email='${_authState.value.email}'")
+    }
+    
+    // Sprint 4 Phase 4: Debounced API Email Deliverability Check
+    private var emailValidationJob: kotlinx.coroutines.Job? = null
+    
+    fun updateSignUpEmail(email: String) {
+        val trimmedEmail = email.trim()
+        _authState.value = _authState.value.copy(
+            email = trimmedEmail,
+            emailError = null
+        )
+        
+        emailValidationJob?.cancel()
+        emailValidationJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(800L) // Debounce typing
+            
+            // Only fire expensive remote API if basic offline regex passes first
+            if (trimmedEmail.isNotEmpty() && ValidationUtils.validateEmail(trimmedEmail) == null) {
+                // Failsafe check — Abstract API live validation
+                val result = emailValidationRepository.validateEmailLive(trimmedEmail)
+                val errorString = result.getOrNull()
+                
+                if (errorString != null) {
+                    _authState.value = _authState.value.copy(emailError = errorString)
+                }
+            }
+        }
     }
     
     fun updatePassword(password: String) {
@@ -233,8 +261,8 @@ class AuthViewModel @Inject constructor(
         val password = _authState.value.password
         val confirmPassword = _authState.value.confirmPassword
         
-        // Validate fields (name was removed from signup)
-        val emailError = ValidationUtils.validateEmail(email)
+        // Validate fields (Inherit async API errors if present, fallback to regex)
+        val emailError = _authState.value.emailError ?: ValidationUtils.validateEmail(email)
         val passwordError = ValidationUtils.validatePassword(password)
         val confirmPasswordError = ValidationUtils.validateConfirmPassword(password, confirmPassword)
         
