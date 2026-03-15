@@ -98,7 +98,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontFamily = Poppins,
                         fontWeight = FontWeight.Bold,
-                        color = DarkTurquoise
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     
                     Spacer(modifier = Modifier.height(16.dp))

@@ -124,52 +124,37 @@ fun DashboardScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding      = PaddingValues(top = 48.dp, bottom = 88.dp)
             ) {
-                // Phase E: Home header matching Settings page
-                item { Spacer(modifier = Modifier.height(16.dp)) }
-                
+                // Welcome header — name only, no redundant 'Home' title
                 item {
-                    Text(
-                        text = "Home",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontFamily = Poppins,
-                        fontWeight = FontWeight.Bold,
-                        color = DarkTurquoise
-                    )
-                }
-                
-                item { Spacer(modifier = Modifier.height(4.dp)) }  // PART 4: Minimal gap (was 12dp)
-                
-                // Welcome Header with capitalized nickname
-                item {
-                    // Capitalize each word in nickname
                     val displayName = state.nickname.takeIf { it.isNotBlank() }?.let { nickname ->
                         nickname.split(" ").joinToString(" ") { word ->
-                            word.replaceFirstChar { char -> 
+                            word.replaceFirstChar { char ->
                                 if (char.isLowerCase()) char.titlecase() else char.toString()
                             }
                         }
                     } ?: "User"
-                    
+
                     Column {
                         Text(
-                            text = "Welcome back,",
-                            style = MaterialTheme.typography.bodyLarge,
+                            text       = "Good day,",
+                            style      = MaterialTheme.typography.bodyMedium,
                             fontFamily = Poppins,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            color      = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                         )
                         Text(
-                            text = displayName,
-                            style = MaterialTheme.typography.titleLarge,  // PHASE 2: Same size as "Home"
+                            text       = displayName,
+                            style      = MaterialTheme.typography.headlineSmall,
                             fontFamily = Poppins,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface  // FIX-2a: Black instead of DarkTurquoise
+                            color      = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
-                
+
                 // Hero Summary Card with Circular Progress and dynamic background
                 item {
                     // Dynamic background color based on calorie consumption

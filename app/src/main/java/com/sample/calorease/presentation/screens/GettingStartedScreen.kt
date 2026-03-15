@@ -1,195 +1,246 @@
 package com.sample.calorease.presentation.screens
 
-import androidx.compose.foundation.Image
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.sample.calorease.R
 import com.sample.calorease.presentation.components.CalorEaseButton
 import com.sample.calorease.presentation.components.CalorEaseOutlinedButton
 import com.sample.calorease.presentation.navigation.Screen
 import com.sample.calorease.presentation.theme.AestheticWhite
-import com.sample.calorease.presentation.theme.DarkTurquoise
+import com.sample.calorease.presentation.theme.DeepTeal
+import com.sample.calorease.presentation.theme.DeepTealDark
 import com.sample.calorease.presentation.theme.Poppins
+
+// ─── Slide data ───────────────────────────────────────────────────────────────
+
+private data class OnboardingSlide(
+    val icon: ImageVector,
+    val iconTint: Color,
+    val title: String,
+    val subtitle: String,
+    val accentLight: Color,
+    val accentDark: Color
+)
+
+private val slides = listOf(
+    OnboardingSlide(
+        icon        = Icons.Default.LocalFireDepartment,
+        iconTint    = Color(0xFF009BAA),
+        title       = "Track Calories Easily",
+        subtitle    = "Log every meal in seconds and stay on top of your daily intake with smart insights.",
+        accentLight = Color(0xFF009BAA),
+        accentDark  = Color(0xFF006874)
+    ),
+    OnboardingSlide(
+        icon        = Icons.Default.TrackChanges,
+        iconTint    = Color(0xFF43A047),
+        title       = "Set Your Goals",
+        subtitle    = "Define personalised calorie and weight targets — then let CalorEase guide you there.",
+        accentLight = Color(0xFF66BB6A),
+        accentDark  = Color(0xFF2E7D32)
+    ),
+    OnboardingSlide(
+        icon        = Icons.Default.ShowChart,
+        iconTint    = Color(0xFF7E57C2),
+        title       = "Monitor Your Progress",
+        subtitle    = "See weekly charts and trends that show exactly how far you have come on your journey.",
+        accentLight = Color(0xFFAB47BC),
+        accentDark  = Color(0xFF6A1B9A)
+    )
+)
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 @Composable
 fun GettingStartedScreen(navController: NavController) {
-    val pagerState = rememberPagerState(pageCount = { 3 })
-    val coroutineScope = rememberCoroutineScope()
-    
-    // Auto-scroll every 5 seconds
+    val pagerState = rememberPagerState(pageCount = { slides.size })
+
+    // Auto-advance every 5 s
     LaunchedEffect(Unit) {
         while (true) {
             kotlinx.coroutines.delay(5000L)
-            val nextPage = (pagerState.currentPage + 1) % 3
-            pagerState.animateScrollToPage(nextPage)
+            val next = (pagerState.currentPage + 1) % slides.size
+            pagerState.animateScrollToPage(next)
         }
     }
-    
-    Column(
+
+    // ── Root layout: AestheticWhite, full-screen column with SpaceBetween ─────
+    // SpaceBetween distributes logo / pager / buttons into natural thirds so no
+    // element is cramped and nothing floats to an uncomfortable edge.
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(AestheticWhite)
     ) {
-        Spacer(modifier = Modifier.height(60.dp))
-        
-        //  Carousel (swipe disabled to prevent manual navigation back)
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.weight(1f),
-            userScrollEnabled = false  // BUGFIX Issue 1: Disable manual swiping
-        ) { page ->
-            OnboardingPage(page)
-        }
-        
-        // Page Indicators
-        Row(
-            modifier = Modifier.padding(vertical = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(horizontal = 28.dp)
+                .padding(top = 32.dp, bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            repeat(3) { index ->
-                Box(
-                    modifier = Modifier
-                        .size(if (index == pagerState.currentPage) 12.dp else 8.dp)
-                        .clip(CircleShape)
-                        .then(
-                            if (index == pagerState.currentPage)
-                                Modifier.clip(CircleShape).size(12.dp, 8.dp)
-                            else Modifier
-                        ),
-                    contentAlignment = Alignment.Center
+            // ── TOP — Logo block ─────────────────────────────────────────────
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text       = "calorease",
+                    fontFamily = Poppins,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize   = 28.sp,
+                    color      = DeepTeal,
+                    textAlign  = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text       = "Your smart calorie companion",
+                    fontFamily = Poppins,
+                    fontSize   = 13.sp,
+                    color      = DeepTeal.copy(alpha = 0.60f),
+                    textAlign  = TextAlign.Center
+                )
+            }
+
+            // ── MIDDLE — Pager grows to fill the space between top and bottom ─
+            HorizontalPager(
+                state             = pagerState,
+                modifier          = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(vertical = 12.dp),
+                userScrollEnabled = true
+            ) { page ->
+                OnboardingSlidePage(slide = slides[page])
+            }
+
+            // ── BOTTOM — Dots + Buttons, grouped together ─────────────────────
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Page indicator dots
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment     = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(if (index == pagerState.currentPage) 32.dp else 8.dp, 8.dp)
-                            .clip(CircleShape)
-                            .then(
-                                Modifier.clip(
-                                    if (index == pagerState.currentPage)
-                                        androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
-                                    else CircleShape
+                    repeat(slides.size) { index ->
+                        val isSelected = index == pagerState.currentPage
+                        Box(
+                            modifier = Modifier
+                                .height(8.dp)
+                                .width(if (isSelected) 28.dp else 8.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isSelected) DeepTeal
+                                    else DeepTeal.copy(alpha = 0.25f)
                                 )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        androidx.compose.foundation.Canvas(
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            drawCircle(
-                                color = if (index == pagerState.currentPage)
-                                    Color(0xFF0097B2)
-                                else
-                                    Color(0xFF0097B2).copy(alpha = 0.3f)
-                            )
-                        }
+                        )
                     }
                 }
+
+                CalorEaseButton(
+                    text    = "Get Started — Sign Up",
+                    onClick = { navController.navigate(Screen.SignUp.route) }
+                )
+
+                CalorEaseOutlinedButton(
+                    text    = "I already have an account",
+                    onClick = { navController.navigate(Screen.Login.route) }
+                )
             }
         }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Sign Up Button
-        CalorEaseButton(
-            text = "Sign Up",
-            onClick = { navController.navigate(Screen.SignUp.route) }
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Login Button
-        CalorEaseOutlinedButton(
-            text = "Login",
-            onClick = { navController.navigate(Screen.Login.route) }
-        )
-        
-        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
+// ─── Single slide composable ──────────────────────────────────────────────────
+
 @Composable
-fun OnboardingPage(page: Int) {
-    val imageRes = when (page) {
-        0 -> R.drawable.intro_slide_1
-        1 -> R.drawable.intro_slide_2
-        else -> R.drawable.intro_slide_3
-    }
-    
-    val title = when (page) {
-        0 -> "Welcome to CalorEase"
-        1 -> "Track Your Goals"
-        else -> "Achieve Success"
-    }
-    
-    val description = when (page) {
-        0 -> "Your personal calorie tracking companion for a healthier lifestyle"
-        1 -> "Set and monitor your fitness goals with precision"
-        else -> "Watch your progress and celebrate achievements"
-    }
-    
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+private fun OnboardingSlidePage(slide: OnboardingSlide) {
+    Column(
+        modifier            = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        // Full-screen background image
-        Image(
-            painter = painterResource(id = imageRes),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
-        
-        // Semi-transparent overlay for better text visibility
+        // Layered radial gradient circles with icon — slightly smaller for breathing room
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.4f))
-        )
-        
-        // Centered text overlay
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .size(130.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        listOf(
+                            slide.accentLight.copy(alpha = 0.25f),
+                            slide.accentDark.copy(alpha = 0.08f)
+                        )
+                    )
+                ),
+            contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                fontFamily = Poppins,
-                fontWeight = FontWeight.Bold,
-                color = DarkTurquoise,
-                textAlign = TextAlign.Center
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyLarge,
-                fontFamily = Poppins,
-                color = Color.White,
-                textAlign = TextAlign.Center
-            )
+            Box(
+                modifier = Modifier
+                    .size(88.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(
+                                slide.accentLight.copy(alpha = 0.45f),
+                                slide.accentDark.copy(alpha = 0.20f)
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector        = slide.icon,
+                    contentDescription = slide.title,
+                    tint               = slide.iconTint,
+                    modifier           = Modifier.size(44.dp)
+                )
+            }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text       = slide.title,
+            fontFamily = Poppins,
+            fontWeight = FontWeight.Bold,
+            fontSize   = 20.sp,
+            color      = DeepTealDark,
+            textAlign  = TextAlign.Center,
+            lineHeight = 28.sp
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text       = slide.subtitle,
+            fontFamily = Poppins,
+            fontSize   = 14.sp,
+            color      = Color(0xFF4A5568),
+            textAlign  = TextAlign.Center,
+            lineHeight = 22.sp,
+            modifier   = Modifier.padding(horizontal = 4.dp)
+        )
     }
 }
