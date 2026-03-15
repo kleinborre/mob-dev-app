@@ -367,14 +367,7 @@ fun SettingsScreen(
     if (state.showWeightConfirmDialog) {
         AlertDialog(
             onDismissRequest = viewModel::hideWeightConfirmDialog,
-            title = {
-                Text(
-                    text = " Confirm Weight Change",
-                    fontFamily = Poppins,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.error
-                )
-            },
+            title = null,
             text = {
                 Column {
                     Text(
@@ -542,24 +535,15 @@ fun SettingsScreen(
             onDismissRequest = viewModel::hideGoalConfirmDialog,
             title = {
                 Text(
-                    text = " Confirm Goal Change",
+                    text = "Confirm Goal Change",
                     fontFamily = Poppins,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.error
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             },
             text = {
                 Column {
-                    Text(
-                        text = " This action CANNOT be undone!",
-                        fontFamily = Poppins,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
                     Text(
                         text = "Changing your goal will:",
                         fontFamily = Poppins,

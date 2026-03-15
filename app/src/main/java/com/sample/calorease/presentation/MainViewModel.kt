@@ -1,8 +1,9 @@
-﻿package com.sample.calorease.presentation
+package com.sample.calorease.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sample.calorease.data.session.SessionManager
+import com.sample.calorease.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,7 +14,8 @@ import javax.inject.Inject
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val sessionManager: SessionManager,
-    private val repository: com.sample.calorease.domain.repository.LegacyCalorieRepository
+    private val repository: com.sample.calorease.domain.repository.LegacyCalorieRepository,
+    private val userRepository: UserRepository
 ) : ViewModel() {
 
     private val _startDestination = MutableStateFlow<String?>(null)
@@ -39,8 +41,8 @@ class MainViewModel @Inject constructor(
                     android.util.Log.d("MainViewModel", " userId from session = $userId")
                     
                     if (userId > 0) {
-                        // Check onboarding status from database
-                        val userStats = repository.getUserStats(userId)
+                        // Use userRepository (direct DAO path) — never returns null due to stubs
+                        val userStats = userRepository.getUserStats(userId)
                         val onboardingCompleted = userStats?.onboardingCompleted ?: false
                         
                         android.util.Log.d("MainViewModel", " onboardingCompleted=$onboardingCompleted")

@@ -1,4 +1,4 @@
-﻿package com.sample.calorease.presentation.viewmodel
+package com.sample.calorease.presentation.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -588,6 +588,63 @@ class OnboardingViewModel @Inject constructor(
     
     fun resetSuccessFlag() {
         _onboardingState.value = _onboardingState.value.copy(isSaveSuccess = false)
+    }
+
+    /**
+     * DEFINITIVE completion marker — runs a direct SQL UPDATE on the user_stats row.
+     * Called from the Congratulations dialog after saveUserStats() already wrote the full row.
+     * Two-step write = guaranteed: (1) full row via REPLACE, (2) flag via direct UPDATE.
+     */
+    fun markOnboardingComplete() {
+        viewModelScope.launch {
+            try {
+                val userId = sessionManager.getUserId() ?: return@launch
+                repository.markOnboardingComplete(userId)
+                android.util.Log.d("OnboardingVM", "✅ markOnboardingComplete() SQL UPDATE committed for userId=$userId")
+            } catch (e: Exception) {
+                android.util.Log.e("OnboardingVM", "markOnboardingComplete failed", e)
+            }
+        }
+    }
+
+    /**
+     * Save whatever the user has entered so far WITHOUT marking onboarding as complete.
+     * Used when the user exits the onboarding flow early — their partial data is preserved
+     * and restored next time they open the onboarding screens.
+     */
+    fun savePartialProgress() {
+        viewModelScope.launch {
+            try {
+                val userId = sessionManager.getUserId() ?: return@launch
+                val state = _onboardingState.value
+
+                // Only save if we have at least a name — avoid empty rows
+                if (state.firstName.isBlank() && state.lastName.isBlank()) return@launch
+
+                val existing = repository.getUserStats(userId)
+                val partial = UserStats(
+                    userId = userId,
+                    firstName = state.firstName,
+                    lastName = state.lastName,
+                    nickname = state.nickname.takeIf { it.isNotBlank() },
+                    gender = existing?.gender ?: state.gender,
+                    birthday = existing?.birthday ?: state.birthday,
+                    age = existing?.age ?: state.age.toIntOrNull() ?: 0,
+                    heightCm = state.height.toDoubleOrNull() ?: existing?.heightCm ?: 0.0,
+                    weightKg = state.weight.toDoubleOrNull() ?: existing?.weightKg ?: 0.0,
+                    activityLevel = existing?.activityLevel ?: state.activityLevel,
+                    weightGoal = existing?.weightGoal ?: state.weightGoal,
+                    targetWeightKg = state.targetWeight.toDoubleOrNull() ?: existing?.targetWeightKg ?: 0.0,
+                    goalCalories = existing?.goalCalories ?: 0.0,
+                    onboardingCompleted = false,   // NOT complete — user exited early
+                    currentOnboardingStep = existing?.currentOnboardingStep ?: 1
+                )
+                repository.saveOnboardingState(partial)
+                android.util.Log.d("OnboardingVM", "Partial progress saved for userId=$userId")
+            } catch (e: Exception) {
+                android.util.Log.e("OnboardingVM", "savePartialProgress failed", e)
+            }
+        }
     }
     
     // NEW: Load saved onboarding progress for incomplete users

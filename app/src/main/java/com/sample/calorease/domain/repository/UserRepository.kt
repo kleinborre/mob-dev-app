@@ -1,58 +1,49 @@
 package com.sample.calorease.domain.repository
 
 import com.sample.calorease.data.local.entity.UserEntity
+import com.sample.calorease.data.model.UserStats
+import kotlinx.coroutines.flow.Flow
 
 /**
  * User Repository Interface
- * Handles all user-related database operations
+ * Handles all user-related database operations.
+ * suspend functions are one-shot; Flow functions provide real-time reactive streams.
  */
 interface UserRepository {
-    
-    /**
-     * Register a new user
-     * @return Result with userId on success, or error
-     */
+
+    /** Register a new user. Returns userId on success. */
     suspend fun registerUser(user: UserEntity): Result<Long>
-    
-    /**
-     * Login with email and password
-     * @return Result with UserEntity on success, or error
-     */
+
+    /** Login with email and password. */
     suspend fun login(email: String, password: String): Result<UserEntity>
-    
-    /**
-     * Get user by ID
-     */
+
+    /** Get user by ID (one-shot). */
     suspend fun getUserById(userId: Int): Result<UserEntity?>
-    
-    /**
-     * Get user by email
-     */
+
+    /** Observe user changes in real-time. */
+    fun getUserByIdFlow(userId: Int): Flow<UserEntity?>
+
+    /** Get user by email (one-shot). */
     suspend fun getUserByEmail(email: String): Result<UserEntity?>
-    
-    /**
-     * Update user information
-     */
+
+    /** Update user information. */
     suspend fun updateUser(user: UserEntity): Result<Unit>
-    
-    /**
-     * Get all users (Admin only)
-     * Phase 5: For admin users management
-     */
+
+    /** Get all users (Admin only). */
     suspend fun getAllUsers(): Result<List<UserEntity>>
-    
-    /**
-     * PHASE 2: Get all users as Flow for real-time updates (Admin only)
-     */
-    fun getAllUsersFlow(): kotlinx.coroutines.flow.Flow<List<UserEntity>>
-    
-    /**
-     * PHASE 2: Deactivate user account (mark as deactivated, don't delete)
-     */
+
+    /** Observe all users in real-time (Admin only). */
+    fun getAllUsersFlow(): Flow<List<UserEntity>>
+
+    /** Deactivate user account (soft delete). */
     suspend fun deactivateAccount(userId: Int): Result<Unit>
-    
-    /**
-     * Check if email exists
-     */
+
+    /** Check if email exists. */
     suspend fun emailExists(email: String): Result<Boolean>
+
+    /** Observe user stats in real-time. */
+    fun getUserStatsFlow(userId: Int): Flow<UserStats?>
+
+    /** Get user stats (one-shot). */
+    suspend fun getUserStats(userId: Int): UserStats?
 }

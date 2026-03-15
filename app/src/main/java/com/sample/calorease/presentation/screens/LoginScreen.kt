@@ -78,22 +78,25 @@ fun LoginScreen(
     // Only show back if: came from Getting Started AND user has never logged in
     val canGoBack = previousRoute == Screen.GettingStarted.route && !hasEverLoggedIn
     
-    // CRITICAL: Conditional navigation based on destination flags  
-    LaunchedEffect(authState.navigateToDashboard, authState.navigateToOnboarding) {
+    // CRITICAL: Navigate on login success. 
+    // Key is isLoginSuccess (false→true→false on every login) — never stale.
+    // navigateToDashboard/navigateToOnboarding alone could be cached from a previous
+    // ViewModel instance and not re-fire the effect on subsequent logins.
+    LaunchedEffect(authState.isLoginSuccess) {
+        if (!authState.isLoginSuccess) return@LaunchedEffect
         when {
             authState.navigateToDashboard -> {
                 navController.navigate(Screen.Dashboard.route) {
-                    popUpTo(Screen.GettingStarted.route) { inclusive = true }
+                    popUpTo(0) { inclusive = true }  // Full clear — works regardless of backstack state
                 }
-                viewModel.resetSuccessFlags()
             }
             authState.navigateToOnboarding -> {
                 navController.navigate(Screen.OnboardingName.route) {
-                    popUpTo(Screen.GettingStarted.route) { inclusive = true }
+                    popUpTo(0) { inclusive = true }  // Full clear
                 }
-                viewModel.resetSuccessFlags()
             }
         }
+        viewModel.resetSuccessFlags()
     }
     
     AuthScaffold(

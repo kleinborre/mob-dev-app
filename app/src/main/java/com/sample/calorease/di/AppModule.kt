@@ -8,8 +8,8 @@ import com.sample.calorease.data.local.AppDatabase
 import com.sample.calorease.data.local.dao.CalorieDao
 import com.sample.calorease.data.local.entity.UserEntity
 import com.sample.calorease.data.model.UserStats
-import com.sample.calorease.domain.model.Gender
 import com.sample.calorease.domain.model.ActivityLevel
+import com.sample.calorease.domain.model.Gender
 import com.sample.calorease.domain.model.WeightGoal
 import com.sample.calorease.data.repository.CalorieRepositoryImpl
 import com.sample.calorease.data.repository.LegacyCalorieRepositoryImpl
@@ -32,165 +32,142 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
-    
+
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
-        // FIX: Removed database deletion - it was wiping ALL data on every app start!
-        // Database should persist across app restarts for production use
-        
+        // ─────────────────────────────────────────────────────────────────────
+        // PERSISTENCE FIX (Sprint 3.1)
+        //
+        // ❌ REMOVED: fallbackToDestructiveMigration()
+        //    This was the #1 cause of data loss — Room silently wiped and
+        //    recreated the entire database whenever it encountered an unknown
+        //    schema version (e.g. after a clean install → forced upgrade test).
+        //
+        // ✅ ADDED:  addMigrations(MIGRATION_12_13) — all schema changes are
+        //    handled with explicit, non-destructive SQL migrations.
+        //    Future engineers must ADD a Migration object for every version bump.
+        //
+        // ❌ REMOVED: redundant second Room.databaseBuilder() inside the
+        //    onCreate callback — that created a race-condition second DB
+        //    connection that could leave the main DB in an inconsistent state.
+        //    Seed data now written through the already-open SupportSQLiteDatabase.
+        // ─────────────────────────────────────────────────────────────────────
         return Room.databaseBuilder(
-            context,
+            context.applicationContext,     // always use applicationContext — not activity context
             AppDatabase::class.java,
-            "calorease_db" // Phase 2 requirement: database name must be "calorease_db"
+            "calorease_db"
         )
-            .fallbackToDestructiveMigration() // For development; remove in production
+            .addMigrations(AppDatabase.MIGRATION_12_13)
+            // NOTE: fallbackToDestructiveMigration() has been intentionally REMOVED
+            // to prevent silent data wipes. If you add a new DB version, add a
+            // Migration object in AppDatabase.kt first.
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {
                     super.onCreate(db)
-                    // ONE-TIME creation of test user when database is first created
+                    // ONE-TIME seed: only executed on a brand-new database install.
+                    // Uses a separate coroutine on IO dispatcher; Room queues the
+                    // writes after the schema is fully initialised.
                     CoroutineScope(Dispatchers.IO).launch {
-                        val database = Room.databaseBuilder(
-                            context,
-                            AppDatabase::class.java,
-                            "calorease_db"
-                        ).build()
-                        
-                        val dao = database.calorieDao()
-                        createTestUser(dao)
-                        android.util.Log.d("AppModule", "Database created with test user")
+                        seedDefaultUsers(db)
+                        android.util.Log.d("AppModule", "Database seeded with default users")
                     }
                 }
             })
             .build()
     }
-    
-    private fun createTestUser(dao: CalorieDao) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                // Create test user account
-                val testUser = UserEntity(
-                    email = "test@calorease.com",
-                    password = "Test123!",
-                    nickname = "",  // Will use firstName from UserStats
-                    role = "USER",
-                    isActive = true,
-                    accountStatus = "active",  // Phase 1: Active account
-                    adminAccess = false,       // Phase 1: Regular user
-                    isSuperAdmin = false,      // Phase B: Not a super admin
-                    accountCreated = System.currentTimeMillis(),  // Phase 1: Creation timestamp
-                    gender = "Male",
-                    height = 175,
-                    weight = 75.0,
-                    age = 28,
-                    activityLevel = "Moderate",
-                    targetWeight = 70.0,
-                    goalType = "LOSE",
-                    bmr = 1700,
-                    tdee = 2400
-                )
-                
-                dao.insertUser(testUser)
-                
-                // Phase 3: Create admin user account
-                val adminUser = UserEntity(
-                    email = "admin@calorease.com",
-                    password = "Admin123!",
-                    nickname = "",
-                    role = "ADMIN",
-                    isActive = true,
-                    accountStatus = "active",
-                    adminAccess = true,         // Admin privileges
-                    isSuperAdmin = true,        // Phase B: Super admin (cannot be demoted)
-                    accountCreated = System.currentTimeMillis(),
-                    gender = "Male",
-                    height = 180,
-                    weight = 80.0,
-                    age = 35,
-                    activityLevel = "Moderate",
-                    targetWeight = 80.0,
-                    goalType = "MAINTAIN",
-                    bmr = 1800,
-                    tdee = 2500
-                )
-                
-                dao.insertUser(adminUser)
-                
-                // Create complete UserStats with all onboarding data for test user
-                val birthCalendar = java.util.Calendar.getInstance().apply {
-                    set(1996, 0, 15)  // Jan 15, 1996 (28 years old)
-                }
-                
-                val testUserStats = UserStats(
-                    userId = 1,  // Links to UserEntity.userId (test user has userId=1)
-                    firstName = "Test",
-                    lastName = "User",
-                    nickname = null,  // Optional - will use firstName on dashboard
-                    gender = Gender.MALE,
-                    birthday = birthCalendar.timeInMillis,
-                    age = 28,
-                    heightCm = 175.0,
-                    weightKg = 75.0,
-                    activityLevel = ActivityLevel.MODERATELY_ACTIVE,
-                    weightGoal = WeightGoal.LOSE_0_5_KG,
-                    targetWeightKg = 70.0,
-                    goalCalories = 2200.0,
-                    onboardingCompleted = true,
-                    currentOnboardingStep = 4
-                )
-                
-                dao.insertUserStats(testUserStats)
-                
-                // Phase 2: Create admin user stats
-                val adminBirthCalendar = java.util.Calendar.getInstance().apply {
-                    set(1989, 5, 20)  // June 20, 1989 (35 years old)
-                }
-                
-                val adminUserStats = UserStats(
-                    userId = 2,  // Links to admin UserEntity (userId=2)
-                    firstName = "Admin",
-                    lastName = "User",
-                    nickname = null,
-                    gender = Gender.MALE,
-                    birthday = adminBirthCalendar.timeInMillis,
-                    age = 35,
-                    heightCm = 180.0,
-                    weightKg = 80.0,
-                    activityLevel = ActivityLevel.MODERATELY_ACTIVE,
-                    weightGoal = WeightGoal.LOSE_0_5_KG,
-                    targetWeightKg = 75.0,
-                    goalCalories = 2300.0,
-                    onboardingCompleted = true,
-                    currentOnboardingStep = 4
-                )
-                
-                dao.insertUserStats(adminUserStats)
-                
-                android.util.Log.d("AppModule", "Test user and Admin user created successfully!")
-            } catch (e: Exception) {
-                android.util.Log.e("AppModule", "Failed to create test user", e)
-            }
+
+    /**
+     * Seeds the database on first install using raw SQL on the already-open
+     * SupportSQLiteDatabase — avoids the old bug of opening a second Room
+     * instance inside the callback.
+     *
+     * Only called ONCE when the database file is first created.
+     */
+    private fun seedDefaultUsers(db: SupportSQLiteDatabase) {
+        try {
+            val now = System.currentTimeMillis()
+
+            // ── Test user ────────────────────────────────────────────────────
+            db.execSQL("""
+                INSERT OR IGNORE INTO users
+                (email, password, nickname, role, isActive, accountStatus,
+                 adminAccess, isSuperAdmin, accountCreated,
+                 gender, height, weight, age, activityLevel,
+                 targetWeight, goalType, bmr, tdee)
+                VALUES
+                ('test@calorease.com', 'Test123!', '', 'USER', 1, 'active',
+                 0, 0, $now,
+                 'Male', 175, 75.0, 28, 'Moderate',
+                 70.0, 'LOSE', 1700, 2400)
+            """.trimIndent())
+
+            // ── Admin user ───────────────────────────────────────────────────
+            db.execSQL("""
+                INSERT OR IGNORE INTO users
+                (email, password, nickname, role, isActive, accountStatus,
+                 adminAccess, isSuperAdmin, accountCreated,
+                 gender, height, weight, age, activityLevel,
+                 targetWeight, goalType, bmr, tdee)
+                VALUES
+                ('admin@calorease.com', 'Admin123!', '', 'ADMIN', 1, 'active',
+                 1, 1, $now,
+                 'Male', 180, 80.0, 35, 'Moderate',
+                 80.0, 'MAINTAIN', 1800, 2500)
+            """.trimIndent())
+
+            // ── user_stats for test user (userId = 1) ────────────────────────
+            val testBirthday = java.util.Calendar.getInstance()
+                .apply { set(1996, 0, 15) }.timeInMillis
+            db.execSQL("""
+                INSERT OR IGNORE INTO user_stats
+                (userId, firstName, lastName, gender, birthday, age,
+                 heightCm, weightKg, activityLevel, weightGoal,
+                 targetWeightKg, goalCalories, onboardingCompleted, currentOnboardingStep)
+                VALUES
+                (1, 'Test', 'User', 'MALE', $testBirthday, 28,
+                 175.0, 75.0, 'MODERATELY_ACTIVE', 'LOSE_0_5_KG',
+                 70.0, 2200.0, 1, 4)
+            """.trimIndent())
+
+            // ── user_stats for admin user (userId = 2) ───────────────────────
+            val adminBirthday = java.util.Calendar.getInstance()
+                .apply { set(1989, 5, 20) }.timeInMillis
+            db.execSQL("""
+                INSERT OR IGNORE INTO user_stats
+                (userId, firstName, lastName, gender, birthday, age,
+                 heightCm, weightKg, activityLevel, weightGoal,
+                 targetWeightKg, goalCalories, onboardingCompleted, currentOnboardingStep)
+                VALUES
+                (2, 'Admin', 'User', 'MALE', $adminBirthday, 35,
+                 180.0, 80.0, 'MODERATELY_ACTIVE', 'LOSE_0_5_KG',
+                 75.0, 2300.0, 1, 4)
+            """.trimIndent())
+
+            android.util.Log.d("AppModule", "Default users seeded successfully")
+        } catch (e: Exception) {
+            android.util.Log.e("AppModule", "Failed to seed default users: ${e.message}", e)
         }
     }
-    
+
     @Provides
     @Singleton
     fun provideCalorieDao(database: AppDatabase): CalorieDao {
         return database.calorieDao()
     }
-    
+
     @Provides
     @Singleton
     fun provideUserRepository(dao: CalorieDao): UserRepository {
         return UserRepositoryImpl(dao)
     }
-    
+
     @Provides
     @Singleton
     fun provideCalorieRepository(dao: CalorieDao): CalorieRepository {
         return CalorieRepositoryImpl(dao)
     }
-    
+
     @Provides
     @Singleton
     fun provideLegacyCalorieRepository(
@@ -207,7 +184,7 @@ object AppModule {
     ): SessionManager {
         return SessionManager(context)
     }
-    
+
     @Provides
     @Singleton
     fun provideCalculatorUseCase(): CalculatorUseCase {

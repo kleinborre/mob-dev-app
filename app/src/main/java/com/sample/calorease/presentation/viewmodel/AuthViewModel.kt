@@ -152,10 +152,12 @@ class AuthViewModel @Inject constructor(
                         Log.d("AuthViewModel", "Preserved existing mode: $existingMode (role=${user.role})")
                     }
                     
-                    // CRITICAL: Check onboarding to determine destination
-                    val userStats = legacyRepository.getUserStats(user.userId)
+                    // CRITICAL: Check onboarding status using direct DAO path (not legacy stub)
+                    // userRepository.getUserStats() was added in Sprint 3.1 and calls dao.getUserStats()
+                    // directly — this correctly reads the `onboardingCompleted` flag saved during onboarding.
+                    val userStats = userRepository.getUserStats(user.userId)
                     val onboardingCompleted = userStats?.onboardingCompleted ?: false
-                    
+
                     _authState.value = _authState.value.copy(
                         isLoading = false,
                         isLoginSuccess = true,

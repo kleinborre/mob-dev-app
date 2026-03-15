@@ -181,4 +181,34 @@ interface CalorieDao {
      */
     @Query("SELECT * FROM daily_entries WHERE userId = :userId ORDER BY date DESC, entryId DESC")
     suspend fun getAllFoodEntriesSortedByDate(userId: Int): List<DailyEntryEntity>
+
+    // ==================== FLOW / REAL-TIME OPERATIONS ====================
+
+    /**
+     * Observe daily entries for a user on a specific date.
+     * Emits a new list whenever the underlying table changes.
+     * Used by DashboardViewModel for live UI updates.
+     */
+    @Query("SELECT * FROM daily_entries WHERE userId = :userId AND date = :date ORDER BY entryId DESC")
+    fun getDailyEntriesFlow(userId: Int, date: Long): kotlinx.coroutines.flow.Flow<List<DailyEntryEntity>>
+
+    /**
+     * Observe total calories for a user on a specific date.
+     * Emits null when no entries exist (callers should coerce to 0).
+     */
+    @Query("SELECT SUM(calories) FROM daily_entries WHERE userId = :userId AND date = :date")
+    fun getTotalCaloriesFlow(userId: Int, date: Long): kotlinx.coroutines.flow.Flow<Int?>
+
+    /**
+     * Observe user stats in real-time.
+     * Emits whenever the user_stats row for this userId changes (e.g. goal/weight update).
+     */
+    @Query("SELECT * FROM user_stats WHERE userId = :userId")
+    fun getUserStatsFlow(userId: Int): kotlinx.coroutines.flow.Flow<com.sample.calorease.data.model.UserStats?>
+
+    /**
+     * Observe user entity in real-time.
+     */
+    @Query("SELECT * FROM users WHERE userId = :userId")
+    fun getUserByIdFlow(userId: Int): kotlinx.coroutines.flow.Flow<com.sample.calorease.data.local.entity.UserEntity?>
 }
