@@ -18,6 +18,7 @@ import com.sample.calorease.presentation.navigation.Screen
 import com.sample.calorease.presentation.theme.DarkTurquoise
 import com.sample.calorease.presentation.theme.Poppins
 import com.sample.calorease.presentation.viewmodel.OnboardingViewModel
+import com.sample.calorease.presentation.components.Render
 
 @Composable
 fun OnboardingResultsScreen(
@@ -27,8 +28,7 @@ fun OnboardingResultsScreen(
     val state by viewModel.onboardingState.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    // Track whether the congratulations dialog is showing
-    var showCongratsDialog by remember { mutableStateOf(false) }
+    val statusDialog = com.sample.calorease.presentation.components.rememberStatusDialog()
 
     // REALTIME AUTO-CALCULATE: runs when input data arrives from previous steps
     LaunchedEffect(state.height, state.weight, state.age, state.targetWeight) {
@@ -48,10 +48,22 @@ fun OnboardingResultsScreen(
     }
 
     // After full save succeeds — show the congratulations dialog (NOT nav yet)
+    LaunchedEffect(state.isLoading) {
+        if (state.isLoading) {
+            statusDialog.showLoading("Saving profile...")
+        }
+    }
+
     LaunchedEffect(state.isSaveSuccess) {
         if (state.isSaveSuccess) {
+            statusDialog.showSuccess("Welcome!")
+            kotlinx.coroutines.delay(1800)
+            statusDialog.dismiss()
+            viewModel.markOnboardingComplete()
+            navController.navigate(Screen.Dashboard.route) {
+                popUpTo(0) { inclusive = true }
+            }
             viewModel.resetSuccessFlag()
-            showCongratsDialog = true   // ← dialog is the definitive navigation trigger
         }
     }
 
@@ -130,58 +142,8 @@ fun OnboardingResultsScreen(
         Spacer(modifier = Modifier.height(32.dp))
     }
 
-    // ── Congratulations Dialog ─────────────────────────────────────────────────
-    // This dialog is the DEFINITIVE navigation trigger.
-    // It appears ONLY after saveUserStats() succeeds (DB write confirmed).
-    // "Let's Go!" calls markOnboardingComplete() (direct SQL UPDATE) then navigates.
-    // Two-step write = no silent failure: REPLACE (full row) + UPDATE (flag only).
-    if (showCongratsDialog) {
-        AlertDialog(
-            onDismissRequest = { /* Non-dismissable — must click the button to go to dashboard */ },
-            title = {
-                Text(
-                    text = "Welcome to calorease!",
-                    fontFamily = Poppins,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    textAlign = TextAlign.Center
-                )
-            },
-            text = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "Your health profile is all set.\n" +
-                               "Daily calorie goal: ${state.goalCalories.toInt()} cal/day",
-                        fontFamily = Poppins,
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showCongratsDialog = false
-                        // Step 2: direct SQL UPDATE — the authoritative completion flag
-                        viewModel.markOnboardingComplete()
-                        // Navigate with full backstack clear
-                        navController.navigate(Screen.Dashboard.route) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = DarkTurquoise
-                    )
-                ) {
-                    Text(
-                        text = "Get Started",
-                        fontFamily = Poppins,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-        )
-    }
+    // Render the status dialog above everything
+    statusDialog.Render()
 }
 
 @Composable

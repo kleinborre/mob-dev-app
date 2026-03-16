@@ -147,9 +147,10 @@ fun LoginScreen(
         coroutineScope.launch {
             dialog.showLoading("Waiting for accounts...")
             try {
-                suspend fun getCredential(filterAuthorized: Boolean): String {
+                suspend fun getCredential(filterAuthorized: Boolean, autoSelect: Boolean): String {
                     val option = GetGoogleIdOption.Builder()
                         .setFilterByAuthorizedAccounts(filterAuthorized)
+                        .setAutoSelectEnabled(autoSelect)
                         .setServerClientId(WEB_CLIENT_ID)
                         .build()
                     val result = CredentialManager.create(context).getCredential(
@@ -160,9 +161,18 @@ fun LoginScreen(
                 }
 
                 val idToken = try {
-                    getCredential(true)       // fast path — already authorised
-                } catch (e: NoCredentialException) {
-                    getCredential(false)      // slow path — full picker
+                    try {
+                        // fast path — auto-select returning users natively
+                        getCredential(filterAuthorized = true, autoSelect = true)       
+                    } catch (e: Exception) {
+                        // If they cancel the auto-login OR have no authorized accounts, show full picker!
+                        if (e is NoCredentialException || e is GetCredentialCancellationException) {
+                            getCredential(filterAuthorized = false, autoSelect = false)
+                        } else throw e
+                    }
+                } catch (e: GetCredentialCancellationException) {
+                    // Canceled the FULL picker
+                    throw e
                 }
 
                 // ViewModel takes over — isLoginSuccess LaunchedEffect handles navigation

@@ -58,6 +58,7 @@ class AuthViewModel @Inject constructor(
     private val calculatorUseCase: CalculatorUseCase,
     private val legacyRepository: com.sample.calorease.domain.repository.LegacyCalorieRepository,
     private val syncScheduler: com.sample.calorease.domain.sync.SyncScheduler,
+    private val syncManager: com.sample.calorease.domain.sync.SyncManager,
     private val emailValidationRepository: com.sample.calorease.data.repository.EmailValidationRepository
 ) : ViewModel() {
     
@@ -158,100 +159,105 @@ class AuthViewModel @Inject constructor(
         }
         
         viewModelScope.launch {
-            // Check if email exists first for better error messages
-            userRepository.getUserByEmail(trimmedEmail).onSuccess { existingUser ->
-                if (existingUser == null) {
-                    // Email doesn't exist
+            try {
+                // 1. Authenticate with Firebase first natively! No more local checking blockade.
+                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                val result = auth.signInWithEmailAndPassword(trimmedEmail, trimmedPassword).await()
+                
+                val firebaseUser = result.user ?: throw Exception("Invalid credentials")
+
+                // 2. Are they verified?
+                if (!firebaseUser.isEmailVerified) {
                     _authState.value = _authState.value.copy(
                         isLoading = false,
-                        emailError = "No account found with this email"
+                        emailError = "Please verify your email address to continue.",
+                        showResendVerification = true
                     )
-                    Log.d("AuthViewModel", "Login failed: Email not found")
                     return@launch
                 }
-                
-                // Phase 3: Check if account is deactivated
-                if (existingUser.accountStatus == "deactivated") {
-                    _authState.value = _authState.value.copy(
-                        isLoading = false,
-                        emailError = "This account is no longer accessible as it was deleted. Please contact support."
+
+                // 3. Since Firebase passed, we guarantee they own the account.
+                // Do they exist locally yet? (Reinstall detection)
+                val existingLocal = userRepository.getUserByEmail(trimmedEmail).getOrNull()
+                val user: UserEntity
+
+                if (existingLocal == null) {
+                    Log.d("AuthViewModel", "Fresh Install Detected during Manual Login. Constructing local shell.")
+                    // Create phantom shell user to hold session
+                    val newUser = UserEntity(
+                        email = trimmedEmail,
+                        password = trimmedPassword, 
+                        nickname = "Loading...", // Will be overwritten by SyncManager
+                        role = "USER",
+                        isActive = true,
+                        isEmailVerified = true, // We literally just checked this in Firebase
+                        gender = "Male",
+                        height = 170,
+                        weight = 70.0,
+                        age = 25,
+                        activityLevel = "Moderate",
+                        targetWeight = 65.0,
+                        goalType = "MAINTAIN",
+                        bmr = 1500,
+                        tdee = 2000
                     )
-                    Log.d("AuthViewModel", "Login failed: Account deactivated")
-                    return@launch
-                }
-                
-                // Email exists and account active, check verification
-                if (!existingUser.isEmailVerified) {
-                    try {
-                        val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
-                        val result = auth.signInWithEmailAndPassword(trimmedEmail, trimmedPassword).await()
-                        
-                        if (result.user?.isEmailVerified == true) {
-                            // User clicked the link! Update Room and proceed
-                            userRepository.updateEmailVerified(existingUser.userId, true)
-                            Log.d("AuthViewModel", "Email verified via Firebase. Room updated.")
-                        } else {
-                            // Still not verified
-                            _authState.value = _authState.value.copy(
-                                isLoading = false,
-                                emailError = "Please verify your email address to continue.",
-                                showResendVerification = true
-                            )
-                            Log.d("AuthViewModel", "Login blocked: Email not verified")
-                            return@launch
-                        }
-                    } catch (e: Exception) {
+                    val newId = userRepository.registerUser(newUser).getOrThrow()
+                    user = userRepository.getUserById(newId.toInt()).getOrThrow()!!
+                } else {
+                    // Update email verified flag just in case
+                    if (!existingLocal.isEmailVerified) {
+                        userRepository.updateEmailVerified(existingLocal.userId, true)
+                    }
+                    if (existingLocal.accountStatus == "deactivated") {
                         _authState.value = _authState.value.copy(
                             isLoading = false,
-                            passwordError = "Incorrect password or network error"
+                            emailError = "This account is no longer accessible as it was deleted. Please contact support."
                         )
-                        Log.e("AuthViewModel", "Firebase auth check failed", e)
                         return@launch
                     }
+                    user = userRepository.getUserByEmail(trimmedEmail).getOrThrow()!!
                 }
 
-                // Try local login (will succeed since we verified password above or they are already verified in DB)
-                userRepository.login(trimmedEmail, trimmedPassword).onSuccess { user ->
-                    sessionManager.setLoggedIn(user.email)
-                    sessionManager.saveUserId(user.userId)
-                    sessionManager.saveRole(user.role)
-                    sessionManager.saveLastLoginEmail(user.email)
-                    
-                    val existingMode = sessionManager.getLastDashboardMode()
-                    val modeWasSaved = existingMode != "user" || user.role == "user"
-                    if (!modeWasSaved) {
-                        val initialMode = if (user.role == "admin") "admin" else "user"
-                        sessionManager.saveLastDashboardMode(initialMode)
-                    }
-                    
-                    val userStats = userRepository.getUserStats(user.userId)
-                    val onboardingCompleted = userStats?.onboardingCompleted ?: false
-
-                    _authState.value = _authState.value.copy(
-                        isLoading = false,
-                        isLoginSuccess = true,
-                        navigateToDashboard = onboardingCompleted,
-                        navigateToOnboarding = !onboardingCompleted,
-                        showResendVerification = false
-                    )
-                    Log.d("AuthViewModel", "Login successful out of Room")
-                    
-                    // Sprint 4 Phase 2: Broker Sync to Firestore upon login natively
-                    syncScheduler.schedulePeriodicSync()
-                    syncScheduler.triggerImmediateSync()
-                }.onFailure { error ->
-                    _authState.value = _authState.value.copy(
-                        isLoading = false,
-                        passwordError = "Incorrect password"
-                    )
+                // 4. Session Manager
+                sessionManager.setLoggedIn(user.email)
+                sessionManager.saveUserId(user.userId)
+                sessionManager.saveRole(user.role)
+                sessionManager.saveLastLoginEmail(user.email)
+                
+                val existingMode = sessionManager.getLastDashboardMode()
+                val modeWasSaved = existingMode != "user" || user.role == "user"
+                if (!modeWasSaved) {
+                    val initialMode = if (user.role == "admin") "admin" else "user"
+                    sessionManager.saveLastDashboardMode(initialMode)
                 }
-            }.onFailure { error ->
-                // Database error during email check
+
+                // 5. SYNCHRONOUS PULL FROM FIREBASE
+                // Sprint 4 Phase 6: Sync execution MUST block here to pull data BEFORE making Navigation decisions
+                syncManager.performSync()
+
+                // 6. Navigate
+                val userStats = userRepository.getUserStats(user.userId)
+                val onboardingCompleted = userStats?.onboardingCompleted ?: false
+
                 _authState.value = _authState.value.copy(
                     isLoading = false,
-                    emailError = "Login failed. Please try again."
+                    isLoginSuccess = true,
+                    navigateToDashboard = onboardingCompleted,
+                    navigateToOnboarding = !onboardingCompleted,
+                    showResendVerification = false
                 )
-                Log.e("AuthViewModel", "Database error during login", error)
+                
+                syncScheduler.schedulePeriodicSync()
+                syncScheduler.triggerImmediateSync()
+                Log.d("AuthViewModel", "Login fully completed via Firebase Auth.")
+                
+            } catch (e: Exception) {
+                // Firebase rejected the credentials or network failed
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    passwordError = "Incorrect email or password, or account doesn't exist"
+                )
+                Log.e("AuthViewModel", "Login failed", e)
             }
         }
     }
@@ -434,6 +440,10 @@ class AuthViewModel @Inject constructor(
                 sessionManager.saveUserId(user.userId)
                 sessionManager.saveRole(user.role)
                 sessionManager.saveLastLoginEmail(user.email)
+
+                // ── SYNCHRONOUS PULL FROM FIREBASE ──────────────────────────────
+                // Sprint 4 Phase 6: Sync execution MUST block here to pull data BEFORE making Navigation decisions
+                syncManager.performSync()
 
                 // ── Step 6: Decide navigation ───────────────────────────────────
                 val userStats         = userRepository.getUserStats(user.userId)

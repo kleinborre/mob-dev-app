@@ -134,9 +134,10 @@ fun SignUpScreen(
         coroutineScope.launch {
             dialog.showLoading("Waiting for accounts...")
             try {
-                suspend fun credential(filterAuthorized: Boolean): String {
+                suspend fun credential(): String {
                     val option = GetGoogleIdOption.Builder()
-                        .setFilterByAuthorizedAccounts(filterAuthorized)
+                        .setFilterByAuthorizedAccounts(false) // ALWAYS SHOW ALL ACCOUNTS FOR REGISTRATION
+                        .setAutoSelectEnabled(false)
                         .setServerClientId(SIGNUP_WEB_CLIENT_ID)
                         .build()
                     val result = CredentialManager.create(context).getCredential(
@@ -146,11 +147,7 @@ fun SignUpScreen(
                     return GoogleIdTokenCredential.createFrom(result.credential.data).idToken
                 }
 
-                val idToken = try {
-                    credential(true)              // fast path — already authorised
-                } catch (e: NoCredentialException) {
-                    credential(false)             // slow path — full picker
-                }
+                val idToken = credential()
 
                 viewModel.googleSignIn(idToken)
 

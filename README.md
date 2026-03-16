@@ -75,6 +75,7 @@ The application features dual-mode functionality with separate dashboards for re
 4. **Abstract Email Deliverability Verification** - Integrated `Retrofit2` mapping the remote Abstract API with automated 800ms Kotlin Coroutine `delay()` debounce logic. Verifies if email domains actually exist and rejects disposable accounts natively before firing Firebase registers.
 5. **One-Tap Google OAuth** - Implemented the modern Android `CredentialManager` API bypassing redundant legacy Google Clients mapping seamless Single Sign-On (SSO) routines natively into Auth flows.
 6. **Reactive Sync Visuals** - Deployed dynamic UI indicator clouds to the Core Dashboards analyzing local Network boundaries scaling native status warnings to users implicitly.
+7. **Resilient Reinstall Sync Deployments** - `SyncManager` natively identifies missing offline `UserStats` during fresh application reinstalls, instantly triggering a blocking download override ignoring UNIX timestamps to safely rescue cloud data from zero-state local deletions.
 
 ---
 

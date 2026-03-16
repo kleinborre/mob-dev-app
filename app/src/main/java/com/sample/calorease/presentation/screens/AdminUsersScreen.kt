@@ -422,7 +422,7 @@ fun EditUserDialog(
                 if (state.isSuperAdmin && state.selectedUser?.userEntity?.isSuperAdmin == false) {
                     Spacer(modifier = Modifier.height(4.dp))
                     
-                    Divider()
+                    HorizontalDivider()
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     

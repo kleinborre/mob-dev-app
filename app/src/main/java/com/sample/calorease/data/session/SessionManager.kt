@@ -19,7 +19,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 @Singleton
 class SessionManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext val context: Context
 ) {
     private object PreferencesKeys {
         val IS_LOGGED_IN = booleanPreferencesKey("is_logged_in")
@@ -122,6 +122,14 @@ class SessionManager @Inject constructor(
             // Restore persistent flags
             hasLoggedIn?.let { preferences[PreferencesKeys.HAS_EVER_LOGGED_IN] = it }
             lastMode?.let { preferences[PreferencesKeys.LAST_DASHBOARD_MODE] = it }
+        }
+        
+        // BUGFIX Sprint 4 Phase 6: Expunge Android Credential Manager auto-login memory
+        try {
+            val request = androidx.credentials.ClearCredentialStateRequest()
+            androidx.credentials.CredentialManager.create(context).clearCredentialState(request)
+        } catch (e: Exception) {
+            // Ignore if Credential Manager fails
         }
     }
 
