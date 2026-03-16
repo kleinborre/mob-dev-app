@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sample.calorease.data.local.entity.UserEntity
 import com.sample.calorease.data.model.UserStats
+import com.sample.calorease.data.remote.FirestoreService
+import com.sample.calorease.data.remote.dto.UserDto
 import com.sample.calorease.domain.repository.LegacyCalorieRepository
 import com.sample.calorease.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -49,10 +51,17 @@ data class UserWithStats(
     val userStats: UserStats?
 ) {
     val displayName: String
-        get() = userStats?.let { "${it.firstName} ${it.lastName}" } ?: userEntity.email
+        get() {
+            if (userStats != null) {
+                val name = "${userStats.firstName} ${userStats.lastName}".trim()
+                if (name.isNotBlank()) return name
+            }
+            // Terminal Final Phase 1.4: Fallback to email for accounts without completed onboarding
+            return userEntity.email.ifBlank { "Unknown User (ID: ${userEntity.userId})" }
+        }
     
     val nickname: String
-        get() = userStats?.nickname ?: "-"
+        get() = userStats?.nickname?.takeIf { it.isNotBlank() } ?: "-"
     
     val age: Int
         get() = userStats?.age ?: 0
@@ -71,13 +80,18 @@ data class UserWithStats(
             val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
             return sdf.format(Date(userEntity.accountCreated))
         }
+    
+    /** Terminal Final Phase 1.4: True when user has no onboarding stats (new or incomplete Google OAuth users) */
+    val isIncomplete: Boolean
+        get() = userStats == null || (userStats.firstName.isBlank() && userStats.lastName.isBlank())
 }
 
 @HiltViewModel
 class AdminUsersViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val legacyRepository: LegacyCalorieRepository,
-    private val sessionManager: com.sample.calorease.data.session.SessionManager // Phase C: For current user
+    private val sessionManager: com.sample.calorease.data.session.SessionManager, // Phase C: For current user
+    private val firestoreService: FirestoreService // Sprint 4 Phase 7.4.1: Direct remote fetch
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(AdminUsersState())
@@ -85,7 +99,24 @@ class AdminUsersViewModel @Inject constructor(
     
     init {
         loadCurrentUser() // Phase C: Load logged-in admin info
-        loadAllUsers()
+        // Sprint 4 Phase 7.7: Start realtime Firestore observation so the table auto-refreshes
+        startObservingUsers()
+    }
+
+    /** Sprint 4 Phase 7.7: Collect the Firestore snapshot Flow to keep the table live **/
+    private fun startObservingUsers() {
+        viewModelScope.launch {
+            try {
+                firestoreService.observeUsers().collect {
+                    // Each emission means Firestore changed — reload full deduplication pass
+                    loadAllUsers()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AdminUsersViewModel", "Realtime observation error", e)
+                // Fallback to one-shot load if the stream dies
+                loadAllUsers()
+            }
+        }
     }
     
     /**
@@ -116,12 +147,89 @@ class AdminUsersViewModel @Inject constructor(
             _state.value = _state.value.copy(isLoading = true)
             
             try {
-                // Get all users from repository
-                val allUserEntities = userRepository.getAllUsers().getOrNull() ?: emptyList()
+                val remoteUsers = firestoreService.getAllUsers()
+                val remoteStats = firestoreService.getAllUserStats()
                 
-                // Load UserStats for each user
-                val usersWithStats = allUserEntities.map { userEntity ->
-                    val userStats = legacyRepository.getUserStats(userEntity.userId)
+                // Sprint 4 Phase 7.9: True Database Cleanup & Descending Sort
+                // Group by case-insensitive email to find duplicates caused by aborted signups
+                val groupedUsers = remoteUsers.groupBy { it.email.lowercase() }
+                val cleanedUsers = mutableListOf<UserDto>()
+                
+                for ((emailGroup, docs) in groupedUsers) {
+                    if (emailGroup.isBlank()) continue
+                    
+                    // Pick the legitimate document: prioritize non-zero userId and newest timestamp
+                    val winner = docs.maxByOrNull { if (it.userId != 0) it.lastUpdated + Long.MAX_VALUE / 2 else it.lastUpdated } ?: docs.first()
+                    cleanedUsers.add(winner)
+                    
+                    // TRUE DATABASE CLEANUP: Delete the ghost/duplicate documents from Firestore permanently
+                    val losers = docs.filter { it != winner }
+                    for (loser in losers) {
+                        try {
+                            // Call the physical delete using the exact case-sensitive email doc ID of the loser
+                            firestoreService.deleteUser(loser.email)
+                            firestoreService.deleteUserStats(loser.email)
+                            android.util.Log.w("AdminUsersVM", "Physically deleted duplicate ghost doc from remote: ${loser.email}")
+                        } catch (ignored: Exception) {}
+                    }
+                }
+                
+                // Sort descending based on ID per request (5, 4, 3, 2, 1)
+                val sortedDeduplicatedUsers = cleanedUsers.sortedByDescending { it.userId }
+                
+                val usersWithStats = sortedDeduplicatedUsers.map { dto ->
+                    val userStatDto = remoteStats.find { it.userId == dto.userId }
+                    
+                    val userEntity = UserEntity(
+                        userId = dto.userId,
+                        email = dto.email,
+                        password = "", 
+                        googleId = dto.googleId,
+                        isEmailVerified = dto.isEmailVerified,
+                        nickname = dto.nickname,
+                        role = dto.role,
+                        isActive = dto.isActive,
+                        accountStatus = dto.accountStatus,
+                        adminAccess = dto.adminAccess,
+                        isSuperAdmin = dto.isSuperAdmin,
+                        accountCreated = dto.accountCreated,
+                        gender = dto.gender,
+                        height = dto.height,
+                        weight = dto.weight,
+                        age = dto.age,
+                        activityLevel = dto.activityLevel,
+                        targetWeight = dto.targetWeight,
+                        goalType = dto.goalType,
+                        bmr = dto.bmr,
+                        tdee = dto.tdee,
+                        lastUpdated = dto.lastUpdated
+                    )
+                    
+                    val userStats = userStatDto?.let { statDto ->
+                        UserStats(
+                            userId = statDto.userId,
+                            firstName = statDto.firstName,
+                            lastName = statDto.lastName,
+                            nickname = statDto.nickname,
+                            gender = try { com.sample.calorease.domain.model.Gender.valueOf(statDto.gender) } catch (e: Exception) { com.sample.calorease.domain.model.Gender.MALE },
+                            heightCm = statDto.heightCm,
+                            weightKg = statDto.weightKg,
+                            age = statDto.age,
+                            birthday = statDto.birthday,
+                            activityLevel = try { com.sample.calorease.domain.model.ActivityLevel.valueOf(statDto.activityLevel) } catch (e: Exception) { com.sample.calorease.domain.model.ActivityLevel.SEDENTARY },
+                            weightGoal = try { com.sample.calorease.domain.model.WeightGoal.valueOf(statDto.weightGoal) } catch (e: Exception) { com.sample.calorease.domain.model.WeightGoal.MAINTAIN },
+                            targetWeightKg = statDto.targetWeightKg,
+                            goalCalories = statDto.goalCalories,
+                            bmiValue = statDto.bmiValue,
+                            bmiStatus = statDto.bmiStatus,
+                            idealWeight = statDto.idealWeight,
+                            bmr = statDto.bmr,
+                            tdee = statDto.tdee,
+                            onboardingCompleted = statDto.onboardingCompleted,
+                            currentOnboardingStep = statDto.currentOnboardingStep
+                        )
+                    }
+                    
                     UserWithStats(userEntity, userStats)
                 }
                 
@@ -130,10 +238,9 @@ class AdminUsersViewModel @Inject constructor(
                     filteredUsers = usersWithStats,
                     isLoading = false
                 )
-                
-                android.util.Log.d("AdminUsersViewModel", "Loaded ${usersWithStats.size} users")
+                android.util.Log.d("AdminUsersViewModel", "Loaded ${usersWithStats.size} deduplicated users from Firestore.")
             } catch (e: Exception) {
-                android.util.Log.e("AdminUsersViewModel", "Failed to load users", e)
+                android.util.Log.e("AdminUsersViewModel", "Failed to load global users", e)
                 _state.value = _state.value.copy(isLoading = false)
             }
         }
@@ -207,9 +314,37 @@ class AdminUsersViewModel @Inject constructor(
                     weightKg = _state.value.editWeight.toDoubleOrNull() ?: userStats.weightKg
                 )
                 
-                legacyRepository.updateUserStats(updatedStats)
+                // Sprint 4 Phase 7.4.1: Global update logic
+                // Write locally IF it's the current user, but MASSIVELY write strictly to Firestore regardless so the data guarantees
+                if (selectedUser.userEntity.userId == _state.value.currentUserId) {
+                    legacyRepository.updateUserStats(updatedStats)
+                }
                 
-                android.util.Log.d("AdminUsersViewModel", "Updated user ${selectedUser.userEntity.userId}")
+                val statDto = com.sample.calorease.data.remote.dto.UserStatsDto(
+                    userId = updatedStats.userId,
+                    firstName = updatedStats.firstName,
+                    lastName = updatedStats.lastName,
+                    nickname = updatedStats.nickname,
+                    gender = updatedStats.gender.name,
+                    heightCm = updatedStats.heightCm,
+                    weightKg = updatedStats.weightKg,
+                    age = updatedStats.age,
+                    birthday = updatedStats.birthday,
+                    activityLevel = updatedStats.activityLevel.name,
+                    weightGoal = updatedStats.weightGoal.name,
+                    targetWeightKg = updatedStats.targetWeightKg,
+                    goalCalories = updatedStats.goalCalories,
+                    bmiValue = updatedStats.bmiValue,
+                    bmiStatus = updatedStats.bmiStatus,
+                    idealWeight = updatedStats.idealWeight,
+                    bmr = updatedStats.bmr,
+                    tdee = updatedStats.tdee,
+                    onboardingCompleted = updatedStats.onboardingCompleted,
+                    currentOnboardingStep = updatedStats.currentOnboardingStep
+                )
+                firestoreService.saveUserStats(selectedUser.userEntity.email, statDto)
+                
+                android.util.Log.d("AdminUsersViewModel", "Updated global user stats ${selectedUser.userEntity.userId}")
                 
                 // Reload users and close dialog
                 hideEditDialog()
@@ -239,15 +374,24 @@ class AdminUsersViewModel @Inject constructor(
             val selectedUser = _state.value.selectedUser ?: return@launch
             
             try {
-                // Toggle status: active ↔ deactivated
                 val newStatus = if (selectedUser.accountStatus == "active") "deactivated" else "active"
+                val updatedUser = selectedUser.userEntity.copy(accountStatus = newStatus, isActive = newStatus == "active", lastUpdated = System.currentTimeMillis())
                 
-                val updatedUser = selectedUser.userEntity.copy(accountStatus = newStatus)
-                userRepository.updateUser(updatedUser)
+                // Sprint 4 Phase 7.7: ALWAYS update local Room as well, not just when editing self.
+                // This ensures the SyncManager sees the correct status on next background pass.
+                val localUser = userRepository.getUserByEmail(updatedUser.email).getOrNull()
+                if (localUser != null) {
+                    userRepository.updateUser(localUser.copy(accountStatus = newStatus, isActive = newStatus == "active", lastUpdated = updatedUser.lastUpdated))
+                }
+                
+                // Write to Firestore
+                val remoteUser = firestoreService.getUser(updatedUser.email)
+                if (remoteUser != null) {
+                    val finalDto = remoteUser.copy(accountStatus = newStatus, isActive = newStatus == "active", lastUpdated = updatedUser.lastUpdated)
+                    firestoreService.saveUser(finalDto)
+                }
                 
                 android.util.Log.d("AdminUsersViewModel", "Toggled user ${selectedUser.userEntity.userId} status to $newStatus")
-                
-                // Reload users and close dialog
                 hideStatusConfirmDialog()
                 loadAllUsers()
             } catch (e: Exception) {
@@ -317,10 +461,19 @@ class AdminUsersViewModel @Inject constructor(
                 }
                 
                 // Apply admin access toggle
-                val updatedUser = selectedUser.userEntity.copy(adminAccess = newAdminAccess)
-                userRepository.updateUser(updatedUser)
+                val updatedUser = selectedUser.userEntity.copy(adminAccess = newAdminAccess, lastUpdated = System.currentTimeMillis())
                 
-                android.util.Log.d("AdminUsersViewModel", "Toggled admin access for user ${selectedUser.userEntity.userId} to $newAdminAccess")
+                if (updatedUser.userId == currentUserId) {
+                    userRepository.updateUser(updatedUser)
+                }
+                
+                val remoteUser = firestoreService.getUser(updatedUser.email)
+                if (remoteUser != null) {
+                    val finalDto = remoteUser.copy(adminAccess = newAdminAccess, lastUpdated = updatedUser.lastUpdated)
+                    firestoreService.saveUser(finalDto)
+                }
+                
+                android.util.Log.d("AdminUsersViewModel", "Toggled global admin access for user ${selectedUser.userEntity.userId} to $newAdminAccess")
                 
                 // Close dialog and reload
                 hideAdminAccessConfirmDialog()

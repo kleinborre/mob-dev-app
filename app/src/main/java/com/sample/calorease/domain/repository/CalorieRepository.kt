@@ -28,6 +28,9 @@ interface CalorieRepository {
     /** Delete a daily entry by ID */
     suspend fun deleteDailyEntry(entryId: Int): Result<Unit>
 
+    /** Permanently wipe a daily entry from the device */
+    suspend fun physicallyDeleteDailyEntry(entryId: Int): Result<Unit>
+
     /** Update an existing daily entry */
     suspend fun updateDailyEntry(entry: DailyEntryEntity): Result<Unit>
 
@@ -39,4 +42,7 @@ interface CalorieRepository {
 
     /** Get ALL entries for a user (for Sprint 4 Remote Sync) */
     suspend fun getAllFoodEntriesSortedByDate(userId: Int): Result<List<DailyEntryEntity>>
+
+    /** Terminal Final Phase 1.1: Observe ALL non-deleted entries in real-time (newest-first) for History page */
+    fun getAllFoodEntriesFlow(userId: Int): Flow<List<DailyEntryEntity>>
 }

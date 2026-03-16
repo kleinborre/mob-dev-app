@@ -11,6 +11,8 @@ import com.sample.calorease.domain.repository.LegacyCalorieRepository
 import com.sample.calorease.domain.usecase.CalculatorUseCase
 import com.sample.calorease.util.ValidationUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -61,10 +63,28 @@ class OnboardingViewModel @Inject constructor(
     private val sessionManager: com.sample.calorease.data.session.SessionManager,
     private val syncScheduler: com.sample.calorease.domain.sync.SyncScheduler
 ) : ViewModel() {
-    
+
     private val _onboardingState = MutableStateFlow(OnboardingState())
     val onboardingState: StateFlow<OnboardingState> = _onboardingState.asStateFlow()
-    
+
+    /** Debounce job: cancels any in-flight save and reschedules after 800ms of inactivity */
+    private var autoSaveJob: Job? = null
+
+    /**
+     * Terminal Final Phase 1.3 (Issue 2): Schedule an auto-save 800ms after the last field update.
+     * Goals:
+     *  - Offline users mid-onboarding never lose input: Room is updated as they type.
+     *  - On reconnect, the next SyncManager run pushes partial data to Firestore automatically.
+     *  - No redundant DB writes — debounce collapses rapid typing into one write.
+     */
+    private fun scheduleAutoSave() {
+        autoSaveJob?.cancel()
+        autoSaveJob = viewModelScope.launch {
+            delay(800L)
+            savePartialProgress()
+        }
+    }
+
     init {
         // CRITICAL: Load existing onboarding state if resuming
         loadExistingState()
@@ -111,17 +131,20 @@ class OnboardingViewModel @Inject constructor(
             firstName = firstName,
             firstNameError = null
         )
+        scheduleAutoSave()
     }
-    
+
     fun updateLastName(lastName: String) {
         _onboardingState.value = _onboardingState.value.copy(
             lastName = lastName,
             lastNameError = null
         )
+        scheduleAutoSave()
     }
-    
+
     fun updateNickname(nickname: String) {
         _onboardingState.value = _onboardingState.value.copy(nickname = nickname)
+        scheduleAutoSave()
     }
     
     fun validateName(): Boolean {
@@ -145,17 +168,15 @@ class OnboardingViewModel @Inject constructor(
     // Step 2: Stats
     fun updateGender(gender: Gender) {
         _onboardingState.value = _onboardingState.value.copy(gender = gender)
+        scheduleAutoSave()
     }
-    
+
     fun updateHeight(height: String) {
-        // UX FIX: Auto-clear "0" when user starts typing
         val cleanValue = if (_onboardingState.value.height == "0" && height.isNotEmpty() && height != "0") {
-            height.replace("0", "") // Remove the 0
+            height.replace("0", "")
         } else {
             height
         }
-        
-        // Real-time validation
         val error = if (cleanValue.isNotEmpty()) {
             val h = cleanValue.toDoubleOrNull()
             when {
@@ -165,22 +186,19 @@ class OnboardingViewModel @Inject constructor(
                 else -> null
             }
         } else null
-        
         _onboardingState.value = _onboardingState.value.copy(
             height = cleanValue,
             heightError = error
         )
+        if (error == null) scheduleAutoSave()
     }
-    
+
     fun updateWeight(weight: String) {
-        // UX FIX: Auto-clear "0" when user starts typing
         val cleanValue = if (_onboardingState.value.weight == "0" && weight.isNotEmpty() && weight != "0") {
-            weight.replace("0", "") // Remove the 0
+            weight.replace("0", "")
         } else {
             weight
         }
-        
-        // Real-time validation
         val error = if (cleanValue.isNotEmpty()) {
             val w = cleanValue.toDoubleOrNull()
             when {
@@ -190,29 +208,26 @@ class OnboardingViewModel @Inject constructor(
                 else -> null
             }
         } else null
-        
         _onboardingState.value = _onboardingState.value.copy(
             weight = cleanValue,
             weightError = error
         )
+        if (error == null) scheduleAutoSave()
     }
     
     fun updateBirthday(birthday: Long) {
-        // Validate birthday before updating
         val error = validateBirthday(birthday)
-        
         _onboardingState.value = _onboardingState.value.copy(
             birthday = birthday,
             birthdayError = error
         )
-        
-        // Auto-calculate age if valid birthday
         if (error == null) {
             val age = calculateAgeFromBirthday(birthday)
             _onboardingState.value = _onboardingState.value.copy(
-                age = age.toString(),  // Convert Int to String
+                age = age.toString(),
                 ageError = null
             )
+            scheduleAutoSave()
         }
     }
     
@@ -255,6 +270,7 @@ class OnboardingViewModel @Inject constructor(
     
     fun updateActivityLevel(activityLevel: ActivityLevel) {
         _onboardingState.value = _onboardingState.value.copy(activityLevel = activityLevel)
+        scheduleAutoSave()
     }
     
     fun validateStats(): Boolean {
@@ -568,20 +584,23 @@ class OnboardingViewModel @Inject constructor(
                 
                 repository.insertUserStats(userStats)
                 
+                // Sprint 4 Phase 7.7: Set isSaveSuccess=true immediately after local Room write.
+                // Do NOT wait for network sync — WorkManager fire-and-forget handles it.
                 _onboardingState.value = state.copy(
                     isLoading = false,
                     isSaveSuccess = true
                 )
                 
-                Log.d("OnboardingViewModel", "Onboarding data saved successfully for userId=$userId (${state.firstName} ${state.lastName})")
+                // Trigger sync in background — non-blocking, works offline too (WorkManager queues it)
+                try { syncScheduler.triggerImmediateSync() } catch (ignored: Exception) {}
+                
+                Log.d("OnboardingViewModel", "Onboarding data saved successfully for userId=$userId (offline-safe)")
             } catch (e: Exception) {
                 _onboardingState.value = _onboardingState.value.copy(
                     isLoading = false,
                     isSaveSuccess = false
                 )
                 Log.e("OnboardingViewModel", "CRASH: Error saving onboarding data", e)
-                Log.e("OnboardingViewModel", "Error message: ${e.message}")
-                Log.e("OnboardingViewModel", "Error cause: ${e.cause}")
                 e.printStackTrace()
             }
         }
@@ -603,8 +622,9 @@ class OnboardingViewModel @Inject constructor(
                 repository.markOnboardingComplete(userId)
                 android.util.Log.d("OnboardingVM", "✅ markOnboardingComplete() SQL UPDATE committed for userId=$userId")
                 
-                // BUGFIX Sprint 4 Phase 6: Push the newly minted Onboarding data straight to Firebase IMMEDIATELY
-                syncScheduler.triggerImmediateSync()
+                // Sprint 4 Phase 7.7: Fire-and-forget sync — navigation must NOT block on network.
+                // Users can finish onboarding offline; WorkManager queues the Firestore push.
+                try { syncScheduler.triggerImmediateSync() } catch (ignored: Exception) {}
             } catch (e: Exception) {
                 android.util.Log.e("OnboardingVM", "markOnboardingComplete failed", e)
             }
@@ -693,6 +713,26 @@ class OnboardingViewModel @Inject constructor(
                 }
             } else {
                 android.util.Log.d("OnboardingVM", "No saved progress or onboarding already complete")
+            }
+        }
+    }
+    
+    /**
+     * Terminal Final Phase 1.3: User explicitly navigated BACK to Login from onboarding.
+     * Saves partial progress (in case they want it later) then clears the 'incomplete onboarding'
+     * flag so the app does NOT redirect them to onboarding on the next cold start.
+     * Condition: this is a deliberate exit — the user chose Login over completing setup.
+     */
+    fun cancelOnboarding() {
+        viewModelScope.launch {
+            // Save whatever they typed so far
+            savePartialProgress()
+            // Clear the resume-onboarding flag so they land on Login next time, not onboarding
+            try {
+                sessionManager.clearSession()
+                android.util.Log.d("OnboardingVM", "cancelOnboarding() — user chose Login; session cleared")
+            } catch (e: Exception) {
+                android.util.Log.e("OnboardingVM", "cancelOnboarding error", e)
             }
         }
     }

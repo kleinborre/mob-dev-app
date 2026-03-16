@@ -25,14 +25,15 @@ data class SettingsState(
     val showLogoutConfirmDialog: Boolean = false,
     val showDeleteConfirmDialog: Boolean = false,
     val showDeleteFinalWarningDialog: Boolean = false,
-    // isLoading = false by default to avoid flash on nav-bar tap
+
+    val shouldNavigateToStart: Boolean = false,
+    val shouldNavigateToLogin: Boolean = false,
     val isLoading: Boolean = false,
-    val isWeightSaving: Boolean = false,   // loading specifically for weight save
-    val isGoalSaving: Boolean = false,     // loading specifically for goal save
-    val isLoggingOut: Boolean = false,     // loading specifically for logout
-    val isDeletingAccount: Boolean = false, // loading for account deletion
-    val successMessage: String? = null,    // one-shot success message
-    val shouldNavigateToStart: Boolean = false
+    // Fix: removed isWeightSaving / isGoalSaving — they caused a frozen LOADING dialog.
+    // Room writes are instant; success is shown via successMessage -> STATUS.SUCCESS (auto-dismisses).
+    val isLoggingOut: Boolean = false,
+    val isDeletingAccount: Boolean = false,
+    val successMessage: String? = null
 )
 
 @HiltViewModel
@@ -41,7 +42,8 @@ class SettingsViewModel @Inject constructor(
     private val calculatorUseCase: CalculatorUseCase,
     val sessionManager: com.sample.calorease.data.session.SessionManager,  // PHASE 3: Public for Switch to Admin
     private val userRepository: com.sample.calorease.domain.repository.UserRepository,  // Phase 4: For adminAccess
-    private val syncScheduler: com.sample.calorease.domain.sync.SyncScheduler
+    private val syncScheduler: com.sample.calorease.domain.sync.SyncScheduler,
+    private val firestoreService: com.sample.calorease.data.remote.FirestoreService
 ) : ViewModel() {
     
     private val _settingsState = MutableStateFlow(SettingsState())
@@ -104,35 +106,37 @@ class SettingsViewModel @Inject constructor(
     
     fun saveNewWeight() {
         viewModelScope.launch {
-            val state    = _settingsState.value
-            val userStats = state.userStats ?: return@launch
-            val newWeight = state.newWeight.toDoubleOrNull() ?: return@launch
+            val state     = _settingsState.value
+            val userStats  = state.userStats ?: return@launch
+            val newWeight  = state.newWeight.toDoubleOrNull() ?: return@launch
 
-            // Show loading while saving
-            _settingsState.value = _settingsState.value.copy(
-                isWeightSaving       = true,
-                showWeightConfirmDialog = false
-            )
+            // Dismiss confirm dialog immediately — no loading state to avoid frozen dialog bug
+            _settingsState.value = _settingsState.value.copy(showWeightConfirmDialog = false)
 
-            val bmr  = calculatorUseCase.calculateBmr(newWeight, userStats.heightCm, userStats.age, userStats.gender)
-            val tdee = calculatorUseCase.calculateTdee(bmr, userStats.activityLevel)
+            val bmr         = calculatorUseCase.calculateBmr(newWeight, userStats.heightCm, userStats.age, userStats.gender)
+            val tdee        = calculatorUseCase.calculateTdee(bmr, userStats.activityLevel)
             val goalCalories = calculatorUseCase.calculateGoalCalories(tdee, userStats.weightGoal)
-
             val updatedStats = userStats.copy(weightKg = newWeight, goalCalories = goalCalories)
-            repository.updateUserStats(updatedStats)
-            // BUGFIX Sprint 4 Phase 6: Preserve historical food entries when changing target weights
-            // deleteUserProgress(userStats.userId)
 
+            // 1. Always write to Room first (offline-safe, instant)
+            repository.updateUserStats(updatedStats)
+
+            // 2. Reflect changes in UI immediately
             _settingsState.value = _settingsState.value.copy(
-                userStats            = updatedStats,
-                showEditWeightDialog = false,
-                isWeightSaving       = false,
-                successMessage       = "Weight updated successfully"
+                userStats      = updatedStats,
+                successMessage = "Weight updated to ${String.format("%.1f", newWeight)} kg"
             )
+
+            // 3. Best-effort Firestore push (fire-and-forget; WorkManager retries if offline)
+            val email = sessionManager.getUserEmail() ?: ""
+            if (email.isNotBlank()) {
+                try { firestoreService.saveUserStats(email, mapToDto(updatedStats)) }
+                catch (syncEx: Exception) {
+                    android.util.Log.w("SettingsViewModel", "Offline: weight sync queued. ${syncEx.message}")
+                }
+            }
+            try { syncScheduler.triggerImmediateSync() } catch (ignored: Exception) {}
             android.util.Log.d("SettingsViewModel", "Weight updated to $newWeight kg")
-            
-            // BUGFIX Sprint 4 Phase 6: Push target weight changes instantly to Firebase
-            syncScheduler.triggerImmediateSync()
         }
     }
     
@@ -170,33 +174,36 @@ class SettingsViewModel @Inject constructor(
     fun saveNewGoal() {
         viewModelScope.launch {
             val state     = _settingsState.value
-            val userStats = state.userStats ?: return@launch
-            val newGoal   = state.newWeightGoal ?: return@launch
+            val userStats  = state.userStats ?: return@launch
+            val newGoal    = state.newWeightGoal ?: return@launch
 
-            _settingsState.value = _settingsState.value.copy(
-                isGoalSaving         = true,
-                showGoalConfirmDialog = false
-            )
+            // Dismiss confirm dialog immediately — no loading state to avoid frozen dialog bug
+            _settingsState.value = _settingsState.value.copy(showGoalConfirmDialog = false)
 
-            val bmr  = calculatorUseCase.calculateBmr(userStats.weightKg, userStats.heightCm, userStats.age, userStats.gender)
-            val tdee = calculatorUseCase.calculateTdee(bmr, userStats.activityLevel)
+            val bmr         = calculatorUseCase.calculateBmr(userStats.weightKg, userStats.heightCm, userStats.age, userStats.gender)
+            val tdee        = calculatorUseCase.calculateTdee(bmr, userStats.activityLevel)
             val goalCalories = calculatorUseCase.calculateGoalCalories(tdee, newGoal)
-
             val updatedStats = userStats.copy(weightGoal = newGoal, goalCalories = goalCalories)
-            repository.updateUserStats(updatedStats)
-            // BUGFIX Sprint 4 Phase 6: Preserve historical food entries when changing target goals
-            // deleteUserProgress(userStats.userId)
 
+            // 1. Always write to Room first (offline-safe, instant)
+            repository.updateUserStats(updatedStats)
+
+            // 2. Reflect changes in UI immediately
             _settingsState.value = _settingsState.value.copy(
-                userStats            = updatedStats,
-                showChangeGoalDialog = false,
-                isGoalSaving         = false,
-                successMessage       = "Goal updated successfully"
+                userStats      = updatedStats,
+                successMessage = "Goal updated successfully"
             )
+
+            // 3. Best-effort Firestore push (fire-and-forget; WorkManager retries if offline)
+            val email = sessionManager.getUserEmail() ?: ""
+            if (email.isNotBlank()) {
+                try { firestoreService.saveUserStats(email, mapToDto(updatedStats)) }
+                catch (syncEx: Exception) {
+                    android.util.Log.w("SettingsViewModel", "Offline: goal sync queued. ${syncEx.message}")
+                }
+            }
+            try { syncScheduler.triggerImmediateSync() } catch (ignored: Exception) {}
             android.util.Log.d("SettingsViewModel", "Goal changed to $newGoal")
-            
-            // BUGFIX Sprint 4 Phase 6: Push target goal changes instantly to Firebase
-            syncScheduler.triggerImmediateSync()
         }
     }
 
@@ -212,6 +219,33 @@ class SettingsViewModel @Inject constructor(
         } catch (e: Exception) {
             android.util.Log.e("SettingsViewModel", "Error deleting progress", e)
         }
+    }
+    
+
+
+    private fun mapToDto(stats: UserStats): com.sample.calorease.data.remote.dto.UserStatsDto {
+        return com.sample.calorease.data.remote.dto.UserStatsDto(
+            userId = stats.userId,
+            firstName = stats.firstName,
+            lastName = stats.lastName,
+            nickname = stats.nickname,
+            gender = stats.gender.name,
+            heightCm = stats.heightCm,
+            weightKg = stats.weightKg,
+            age = stats.age,
+            birthday = stats.birthday,
+            activityLevel = stats.activityLevel.name,
+            weightGoal = stats.weightGoal.name,
+            targetWeightKg = stats.targetWeightKg,
+            goalCalories = stats.goalCalories,
+            bmiValue = stats.bmiValue,
+            bmiStatus = stats.bmiStatus,
+            idealWeight = stats.idealWeight,
+            bmr = stats.bmr,
+            tdee = stats.tdee,
+            onboardingCompleted = stats.onboardingCompleted,
+            currentOnboardingStep = stats.currentOnboardingStep
+        )
     }
     
     // Logout
@@ -244,7 +278,7 @@ class SettingsViewModel @Inject constructor(
             _settingsState.value = _settingsState.value.copy(
                 isLoggingOut = false,
                 successMessage = "Logged out successfully",
-                shouldNavigateToStart = true
+                shouldNavigateToLogin = true 
             )
         }
     }
@@ -284,8 +318,11 @@ class SettingsViewModel @Inject constructor(
             val userId = sessionManager.getUserId()
             userId?.let {
                 userRepository.deactivateAccount(it)
-                android.util.Log.d("SettingsViewModel", "Account deactivated (userId=$it)")
+                android.util.Log.d("SettingsViewModel", "Account deactivated locally (userId=$it)")
             }
+            // Sprint 4 Phase 7.4.1: Massively sync to Firestore immediately before clearing the session so the cloud recognizes the deactivation.
+            syncScheduler.triggerImmediateSync()
+            
             sessionManager.saveAccountDeletionSuccess(true)
             sessionManager.clearSession()
             
@@ -298,7 +335,10 @@ class SettingsViewModel @Inject constructor(
     }
     
     fun resetNavigationFlag() {
-        _settingsState.value = _settingsState.value.copy(shouldNavigateToStart = false)
+        _settingsState.value = _settingsState.value.copy(
+            shouldNavigateToStart = false,
+            shouldNavigateToLogin = false
+        )
     }
     
     

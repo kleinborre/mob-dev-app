@@ -325,6 +325,23 @@ fun UserTableRow(
                         )
                     }
                     
+                    // Terminal Final Phase 1.4: Incomplete Profile badge
+                    if (user.isIncomplete) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = androidx.compose.ui.graphics.Color(0xFFFFF3CD)
+                        ) {
+                            Text(
+                                text = "INCOMPLETE",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = Poppins,
+                                fontWeight = FontWeight.Bold,
+                                color = androidx.compose.ui.graphics.Color(0xFF856404),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                    
                     Text(
                         text = "Created: ${user.accountCreatedDate}",
                         style = MaterialTheme.typography.bodySmall,

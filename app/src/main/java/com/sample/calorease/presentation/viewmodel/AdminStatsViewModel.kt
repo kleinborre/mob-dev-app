@@ -2,8 +2,7 @@ package com.sample.calorease.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sample.calorease.domain.repository.LegacyCalorieRepository
-import com.sample.calorease.domain.repository.UserRepository
+import com.sample.calorease.data.remote.FirestoreService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,20 +26,95 @@ data class AdminStatsState(
 
 @HiltViewModel
 class AdminStatsViewModel @Inject constructor(
-    private val userRepository: UserRepository,
-    private val legacyRepository: LegacyCalorieRepository
+    private val firestoreService: FirestoreService
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(AdminStatsState())
     val state: StateFlow<AdminStatsState> = _state.asStateFlow()
     
     init {
-        // PHASE 2: Use Flow for real-time updates
+        // Sprint 4 Phase 7.7: Replace one-shot fetch with live Firestore snapshot observation.
+        // Stats now auto-update whenever any user document changes (deactivation, new signup, etc.)
+        startObservingStats()
+    }
+
+    private fun startObservingStats() {
         viewModelScope.launch {
-            userRepository.getAllUsersFlow()
-                .collect { users ->
-                    updateStatsFromUsers(users)
+            _state.value = _state.value.copy(isLoading = true)
+            try {
+                firestoreService.observeUsers().collect { remoteUsers ->
+                    val mappedUsers = remoteUsers.map { dto ->
+                        com.sample.calorease.data.local.entity.UserEntity(
+                            userId = dto.userId,
+                            email = dto.email,
+                            password = "",
+                            googleId = dto.googleId,
+                            isEmailVerified = dto.isEmailVerified,
+                            nickname = dto.nickname,
+                            role = dto.role,
+                            isActive = dto.isActive,
+                            accountStatus = dto.accountStatus,
+                            adminAccess = dto.adminAccess,
+                            isSuperAdmin = dto.isSuperAdmin,
+                            accountCreated = dto.accountCreated,
+                            gender = dto.gender,
+                            height = dto.height,
+                            weight = dto.weight,
+                            age = dto.age,
+                            activityLevel = dto.activityLevel,
+                            targetWeight = dto.targetWeight,
+                            goalType = dto.goalType,
+                            bmr = dto.bmr,
+                            tdee = dto.tdee,
+                            lastUpdated = dto.lastUpdated
+                        )
+                    }
+                    updateStatsFromUsers(mappedUsers)
                 }
+            } catch (e: Exception) {
+                android.util.Log.e("AdminStatsViewModel", "Realtime stats observation error: ${e.message}")
+                // Fallback to one-shot
+                loadGlobalStats()
+            }
+        }
+    }
+
+    fun loadGlobalStats() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isLoading = true)
+            try {
+                val remoteUsers = firestoreService.getAllUsers()
+                val mappedUsers = remoteUsers.map { dto ->
+                    com.sample.calorease.data.local.entity.UserEntity(
+                        userId = dto.userId,
+                        email = dto.email,
+                        password = "",
+                        googleId = dto.googleId,
+                        isEmailVerified = dto.isEmailVerified,
+                        nickname = dto.nickname,
+                        role = dto.role,
+                        isActive = dto.isActive,
+                        accountStatus = dto.accountStatus,
+                        adminAccess = dto.adminAccess,
+                        isSuperAdmin = dto.isSuperAdmin,
+                        accountCreated = dto.accountCreated,
+                        gender = dto.gender,
+                        height = dto.height,
+                        weight = dto.weight,
+                        age = dto.age,
+                        activityLevel = dto.activityLevel,
+                        targetWeight = dto.targetWeight,
+                        goalType = dto.goalType,
+                        bmr = dto.bmr,
+                        tdee = dto.tdee,
+                        lastUpdated = dto.lastUpdated
+                    )
+                }
+                updateStatsFromUsers(mappedUsers)
+            } catch (e: Exception) {
+                android.util.Log.e("AdminStatsViewModel", "Failed to fetch global stats: ${e.message}")
+                _state.value = _state.value.copy(isLoading = false)
+            }
         }
     }
     

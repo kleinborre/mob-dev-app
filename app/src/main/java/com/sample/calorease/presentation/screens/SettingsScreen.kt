@@ -47,13 +47,26 @@ fun SettingsScreen(
     var showSwitchToAdminConfirm by remember { mutableStateOf(false) }
     val dialog = rememberStatusDialog()
 
-    // Weight saving loading + success
-    LaunchedEffect(state.isWeightSaving) {
-        if (state.isWeightSaving) dialog.showLoading("Updating weight...")
+    // Navigate to getting started on account deletion
+    LaunchedEffect(state.shouldNavigateToStart) {
+        if (state.shouldNavigateToStart) {
+            navController.navigate(Screen.GettingStarted.route) {
+                popUpTo(0) { inclusive = true }
+            }
+            viewModel.resetNavigationFlag()
+        }
     }
-    LaunchedEffect(state.isGoalSaving) {
-        if (state.isGoalSaving) dialog.showLoading("Updating goal...")
+
+    // Navigate to Login on Logout
+    LaunchedEffect(state.shouldNavigateToLogin) {
+        if (state.shouldNavigateToLogin) {
+            navController.navigate(Screen.Login.route) {
+                popUpTo(0) { inclusive = true }
+            }
+            viewModel.resetNavigationFlag()
+        }
     }
+
     LaunchedEffect(state.isLoggingOut) {
         if (state.isLoggingOut) dialog.showLoading("Signing out...")
     }
@@ -64,16 +77,6 @@ fun SettingsScreen(
         state.successMessage?.let {
             dialog.showSuccess(it)
             viewModel.clearSuccessMessage()
-        }
-    }
-
-    // Navigate to getting started on account deletion
-    LaunchedEffect(state.shouldNavigateToStart) {
-        if (state.shouldNavigateToStart) {
-            navController.navigate(Screen.GettingStarted.route) {
-                popUpTo(0) { inclusive = true }
-            }
-            viewModel.resetNavigationFlag()
         }
     }
 

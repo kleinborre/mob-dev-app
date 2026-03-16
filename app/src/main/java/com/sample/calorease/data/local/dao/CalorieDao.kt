@@ -194,6 +194,12 @@ interface CalorieDao {
     suspend fun deleteDailyEntry(entryId: Int, timestamp: Long)
     
     /**
+     * Sprint 4 Phase 7.9: Permanently wipe a daily entry from local device
+     */
+    @Query("DELETE FROM daily_entries WHERE entryId = :entryId")
+    suspend fun physicallyDeleteDailyEntry(entryId: Int)
+    
+    /**
      * Update an existing daily entry
      */
     @Update
@@ -207,10 +213,17 @@ interface CalorieDao {
     suspend fun getEntriesByMealType(userId: Int, date: Long, mealType: String): List<DailyEntryEntity>
     
     /**
-     * Get ALL food entries for a user sorted by date (latest first) for history page
+     * Get ALL food entries for a user sorted by date (latest first) for history page (one-shot)
      */
     @Query("SELECT * FROM daily_entries WHERE userId = :userId ORDER BY date DESC, entryId DESC")
     suspend fun getAllFoodEntriesSortedByDate(userId: Int): List<DailyEntryEntity>
+
+    /**
+     * Terminal Final Phase 1.1: Real-time observable of ALL non-deleted entries newest-first.
+     * Used by FoodHistoryViewModel for live paginated history.
+     */
+    @Query("SELECT * FROM daily_entries WHERE userId = :userId AND isDeleted = 0 ORDER BY date DESC, entryId DESC")
+    fun getAllFoodEntriesFlow(userId: Int): kotlinx.coroutines.flow.Flow<List<DailyEntryEntity>>
 
     // ==================== FLOW / REAL-TIME OPERATIONS ====================
 
