@@ -159,25 +159,77 @@ app/src/main/java/com/sample/calorease/
 
 ---
 
-## 📈 Database Schema (Local ↔ Remote)
+## 📈 Database Design
 
-### Entity/Document Paradigm
+### 1. Entity-Relationship Diagram (ERD)
 
-**1. User Profile Architecture** 
-* **Room SQLite (Offline Source of Truth)**
-  - `UserEntity`: (Fields: `email` [PrimaryKey], `accountStatus`, `accountCreated`, `lastUpdated`)
-  - `UserStatsEntity`: (Fields: `userId` [ForeignKey], `nickname`, `age`, `gender`, `heightCm`, `weightTargetKg`)
-* **Firebase Firestore (Cloud Sync)**
-  - Collection: `users`
-  - Document ID: `email` string
-  - Merged Fields: Natively compiles `UserEntity` + `UserStatsEntity` properties relying upon a strict UNIX `lastUpdated` timestamp logic for resolution conflicts.
+![CalorEase Database Architecture](./calorease-database-architecture.png)
 
-**2. Tracking Log Architecture**
-* **Room SQLite (Offline Source of Truth)**
-  - `DailyEntryEntity`: (Fields: `entryId` [PrimaryKey AutoGen], `userId` [ForeignKey], `date` [String YYYY-MM-DD], `calories` [Float], `lastUpdated`)
-* **Firebase Firestore (Cloud Sync)**
-  - Sub-collection: `daily_entries` (Nested inherently under the specific `users` specific document).
-  - Document ID: `date` string (Ensuring one uniform payload entry maximum per day matching Mobile logic scaling naturally without overlap).
+### 2. Data Dictionary
+
+#### Local SQLite Schema (Room Database)
+| Table | Column | Data Type | Key Type | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **users** | `userId` | Int | PK (AutoGen) | Unique system identifier for authentication |
+| | `email` | String | Unique Index | Core login credential |
+| | `password` | String | | Password hash/plain text (prototype) |
+| | `googleId` | String?| | Nullable Google SSO mapper |
+| | `nickname` | String | | Display name |
+| | `role` | String | | Access level (`USER` or `ADMIN`) |
+| | `isActive` | Boolean | | Soft deactivation flag |
+| | `accountStatus`| String | | `active` or `deactivated` |
+| | `adminAccess`| Boolean | | Elevated dashboard permissions |
+| | `isSuperAdmin`| Boolean | | Immutable admin guard |
+| | `isEmailVerified`| Boolean| | Abstract API deliverability verified |
+| | `accountCreated`| Long| | Epoch registration timestamp |
+| | `lastUpdated`| Long | | Epoch timestamp for Last-Write-Wins |
+| **user_stats** | `userId` | Int | PK, FK | Foreign key mapped to `users(userId)`. Cascade On Delete. |
+| | `firstName` | String | | User's first name |
+| | `lastName` | String | | User's surname |
+| | `gender` | String | | `Male` or `Female` |
+| | `heightCm` | Double | | Height in centimeters |
+| | `weightKg` | Double | | Current weight |
+| | `age` | Int | | Calculated integer mapping |
+| | `birthday`| Long? | | Birth date timestamp |
+| | `activityLevel`| String | | Calorie multi-factor mapping |
+| | `weightGoal` | String | | `LOSE_0_5_KG`, `MAINTAIN`, etc. |
+| | `goalCalories` | Double | | Formulaic target ingestion |
+| | `bmiValue` | Double | | Pre-calculated BMI |
+| | `bmr` / `tdee` | Double | | Calculated thresholds |
+| | `onboardingCompleted`| Boolean| | Gatekeeper for login navigation |
+| **daily_entries**| `entryId` | Int | PK (AutoGen) | Food log unique sequence |
+| | `userId` | Int | FK, Index | Mapped to `users(userId)`. Cascade On Delete. |
+| | `date` | Long | Index | Start-of-day epoch boundary |
+| | `foodName` | String | | User-typed text string |
+| | `calories` | Int | | Total caloric value |
+| | `mealType` | String | | `Breakfast`, `Lunch`, etc. |
+| | `isDeleted`| Boolean| | Remote sync soft-delete flag |
+| | `syncId` | String | | UUID for Document collision guarantees |
+| | `lastUpdated`| Long | | Conflict resolution timestamp |
+
+#### Remote NoSQL Topology (Firebase Firestore)
+| Collection | Document ID | Sub-Collections | Description |
+| :--- | :--- | :--- | :--- |
+| **users** | `{email}` | `user_stats`, `daily_entries` | Stores authentication properties. Replicates Room `users` columns seamlessly. |
+| **user_stats** | `"stats"` | (None) | Nested strictly inside the `{email}` document. 1-to-1 topography. Replicates Room `user_stats`. |
+| **daily_entries**| `{syncId}` | (None) | Stacked infinitely inside the `{email}` document. Documents mapped by UUIDs. Replicates Room `daily_entries`. |
+
+---
+
+### 3. Normalization Explanation (3rd Normal Form Validation)
+
+The offline **Room Relational Database** was specifically engineered to achieve the **3rd Normal Form (3NF)** to ensure minimal data redundancy and guarantee data strictness prior to pushing payloads up to the NoSQL cloud:
+
+1. **First Normal Form (1NF):** 
+   - Every column contains atomic (indivisible) definitions (i.e., `firstName` and `lastName` are distinct strings, not merged). 
+   - Every table possesses an explicit, unique Primary Key (`userId` for Users, `entryId` for DailyEntries).
+   
+2. **Second Normal Form (2NF):**
+   - No partial dependencies are present. All non-key attributes depend completely upon the entire Primary Key of their respective tables. If an entry is made in `daily_entries`, its properties (`foodName`, `calories`) depend entirely on exactly that `entryId`.
+
+3. **Third Normal Form (3NF):**
+   - No transitive dependencies exist. A primary architectural decision was actively separating the `users` table from the `user_stats` table despite their 1-to-1 relationship footprint. 
+   - **Why?** The `users` table handles strict, volatile *authentication boundaries* (`password`, `isActive`, `role`). The `user_stats` schema manages dynamic, mathematically intense UI rendering arrays (`bmiValue`, `bmr`, `goalCalories`). Separating them ensures updating a user's weight goal doesn't trigger a full table lock against the system's authentication constraints, officially satisfying optimal 3NF integrity rules natively.
 
 ---
 
