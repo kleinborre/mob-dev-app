@@ -40,7 +40,8 @@ class SettingsViewModel @Inject constructor(
     private val repository: LegacyCalorieRepository,
     private val calculatorUseCase: CalculatorUseCase,
     val sessionManager: com.sample.calorease.data.session.SessionManager,  // PHASE 3: Public for Switch to Admin
-    private val userRepository: com.sample.calorease.domain.repository.UserRepository  // Phase 4: For adminAccess
+    private val userRepository: com.sample.calorease.domain.repository.UserRepository,  // Phase 4: For adminAccess
+    private val syncScheduler: com.sample.calorease.domain.sync.SyncScheduler
 ) : ViewModel() {
     
     private val _settingsState = MutableStateFlow(SettingsState())
@@ -119,7 +120,8 @@ class SettingsViewModel @Inject constructor(
 
             val updatedStats = userStats.copy(weightKg = newWeight, goalCalories = goalCalories)
             repository.updateUserStats(updatedStats)
-            deleteUserProgress(userStats.userId)
+            // BUGFIX Sprint 4 Phase 6: Preserve historical food entries when changing target weights
+            // deleteUserProgress(userStats.userId)
 
             _settingsState.value = _settingsState.value.copy(
                 userStats            = updatedStats,
@@ -128,6 +130,9 @@ class SettingsViewModel @Inject constructor(
                 successMessage       = "Weight updated successfully"
             )
             android.util.Log.d("SettingsViewModel", "Weight updated to $newWeight kg")
+            
+            // BUGFIX Sprint 4 Phase 6: Push target weight changes instantly to Firebase
+            syncScheduler.triggerImmediateSync()
         }
     }
     
@@ -179,7 +184,8 @@ class SettingsViewModel @Inject constructor(
 
             val updatedStats = userStats.copy(weightGoal = newGoal, goalCalories = goalCalories)
             repository.updateUserStats(updatedStats)
-            deleteUserProgress(userStats.userId)
+            // BUGFIX Sprint 4 Phase 6: Preserve historical food entries when changing target goals
+            // deleteUserProgress(userStats.userId)
 
             _settingsState.value = _settingsState.value.copy(
                 userStats            = updatedStats,
@@ -188,6 +194,9 @@ class SettingsViewModel @Inject constructor(
                 successMessage       = "Goal updated successfully"
             )
             android.util.Log.d("SettingsViewModel", "Goal changed to $newGoal")
+            
+            // BUGFIX Sprint 4 Phase 6: Push target goal changes instantly to Firebase
+            syncScheduler.triggerImmediateSync()
         }
     }
 
@@ -224,6 +233,13 @@ class SettingsViewModel @Inject constructor(
             kotlinx.coroutines.delay(800)
             
             sessionManager.clearSession()
+
+            // BUGFIX Sprint 4 Phase 6: Natively terminate sticky Android & Firebase Sessions so they don't leak "lr.ojkborre" data
+            try {
+                com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+            } catch (e: Exception) {
+                // Silent catch
+            }
             
             _settingsState.value = _settingsState.value.copy(
                 isLoggingOut = false,
@@ -291,6 +307,12 @@ class SettingsViewModel @Inject constructor(
      */
     fun switchToAdminMode(onNavigate: () -> Unit) {
         viewModelScope.launch {
+            if (!com.sample.calorease.presentation.util.NetworkUtils.isNetworkAvailable(sessionManager.context)) {
+                _settingsState.value = _settingsState.value.copy(
+                    successMessage = "No network connection. Admin Mode requires internet access."
+                )
+                return@launch
+            }
             sessionManager.saveLastDashboardMode("admin")
             android.util.Log.d("SettingsViewModel", "Saved lastDashboardMode = admin")
             onNavigate()

@@ -15,6 +15,8 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.sample.calorease.domain.repository.LegacyCalorieRepository
+
 /**
  * SyncManager
  * Brokering Two-Way synchronization between local Room DB and Firebase Firestore.
@@ -25,6 +27,7 @@ class SyncManager @Inject constructor(
     private val firestoreService: FirestoreService,
     private val userRepository: UserRepository,
     private val calorieRepository: CalorieRepository,
+    private val legacyRepository: LegacyCalorieRepository,
     private val sessionManager: SessionManager
 ) {
     suspend fun performSync() = withContext(Dispatchers.IO) {
@@ -56,6 +59,24 @@ class SyncManager @Inject constructor(
             // Push our local entity to Firebase if nonexistent 
             Log.d("SyncManager", "Remote User is null. Pushing local to Firebase.")
             firestoreService.saveUser(mapToDto(currentLocalUser))
+            
+            // Push Onboarding/Stats silently concurrently
+            val stats = legacyRepository.getUserStats(localUserId)
+            if (stats != null) {
+                firestoreService.saveUserStats(email, mapToDto(stats))
+            }
+            return
+        }
+
+        // Sprint 4 Phase 6: Fresh Install Detection
+        // Prevent newly generated local UserEntity ghosts (which appear "newer" via timestamp) from destroying remote NoSQL data
+        val stats = legacyRepository.getUserStats(localUserId)
+        val remoteStats = firestoreService.getUserStats(email)
+        
+        if (stats == null && remoteStats != null) {
+            Log.d("SyncManager", "Fresh Install Detected! Restoring remote profile to local Room DB.")
+            userRepository.updateUser(mapToEntity(remoteUser, currentLocalUser.password, localUserId))
+            legacyRepository.insertUserStats(mapToEntity(remoteStats, localUserId))
             return
         }
 
@@ -63,11 +84,28 @@ class SyncManager @Inject constructor(
         if (currentLocalUser.lastUpdated > remoteUser.lastUpdated) {
             Log.d("SyncManager", "Local User is newer. Pushing to Firebase.")
             firestoreService.saveUser(mapToDto(currentLocalUser))
+            
+            if (stats != null) {
+                firestoreService.saveUserStats(email, mapToDto(stats))
+            }
         } else if (remoteUser.lastUpdated > currentLocalUser.lastUpdated) {
             Log.d("SyncManager", "Remote User is newer. Pulling to Room.")
             userRepository.updateUser(mapToEntity(remoteUser, currentLocalUser.password, localUserId)) // password persisted locally only
+            
+            val remoteStats = firestoreService.getUserStats(email)
+            if (remoteStats != null) {
+                legacyRepository.updateUserStats(mapToEntity(remoteStats, localUserId))
+            }
         } else {
             Log.d("SyncManager", "User profiles natively identical.")
+            val stats = legacyRepository.getUserStats(localUserId)
+            val remoteStats = firestoreService.getUserStats(email)
+            // Edge Case Fallback: if remote stats vanished or never uploaded due to previous bugs
+            if (stats != null && remoteStats == null) {
+                firestoreService.saveUserStats(email, mapToDto(stats))
+            } else if (stats == null && remoteStats != null) {
+                legacyRepository.insertUserStats(mapToEntity(remoteStats, localUserId))
+            }
         }
     }
 
@@ -98,11 +136,11 @@ class SyncManager @Inject constructor(
             if (local == null) {
                 // Meaning it was added remotely but never fetched locally
                 Log.d("SyncManager", "Pulling NEW remote DailyEntry $uniqueId to Local")
-                calorieRepository.addDailyEntry(mapToEntity(remote))
+                calorieRepository.addDailyEntry(mapToEntity(remote, localUserId))
             } else if (remote.lastUpdated > local.lastUpdated) {
                 // Remote update is newer
                 Log.d("SyncManager", "Pulling UPDATED remote DailyEntry $uniqueId to Local")
-                calorieRepository.updateDailyEntry(mapToEntity(remote).copy(entryId = local.entryId))
+                calorieRepository.updateDailyEntry(mapToEntity(remote, localUserId).copy(entryId = local.entryId))
             }
         }
     }
@@ -173,15 +211,65 @@ class SyncManager @Inject constructor(
         )
     }
 
-    private fun mapToEntity(dto: DailyEntryDto): DailyEntryEntity {
+    private fun mapToEntity(dto: DailyEntryDto, localUserId: Int): DailyEntryEntity {
         return DailyEntryEntity(
             entryId = dto.entryId,
-            userId = dto.userId,
+            userId = localUserId,
             date = dto.date,
             foodName = dto.foodName,
             calories = dto.calories,
             mealType = dto.mealType,
             lastUpdated = dto.lastUpdated
+        )
+    }
+
+    private fun mapToDto(stats: com.sample.calorease.data.model.UserStats): com.sample.calorease.data.remote.dto.UserStatsDto {
+        return com.sample.calorease.data.remote.dto.UserStatsDto(
+            userId = stats.userId,
+            firstName = stats.firstName,
+            lastName = stats.lastName,
+            nickname = stats.nickname,
+            gender = stats.gender.name,
+            heightCm = stats.heightCm,
+            weightKg = stats.weightKg,
+            age = stats.age,
+            birthday = stats.birthday,
+            activityLevel = stats.activityLevel.name,
+            weightGoal = stats.weightGoal.name,
+            targetWeightKg = stats.targetWeightKg,
+            goalCalories = stats.goalCalories,
+            bmiValue = stats.bmiValue,
+            bmiStatus = stats.bmiStatus,
+            idealWeight = stats.idealWeight,
+            bmr = stats.bmr,
+            tdee = stats.tdee,
+            onboardingCompleted = stats.onboardingCompleted,
+            currentOnboardingStep = stats.currentOnboardingStep
+        )
+    }
+
+    private fun mapToEntity(dto: com.sample.calorease.data.remote.dto.UserStatsDto, localUserId: Int): com.sample.calorease.data.model.UserStats {
+        return com.sample.calorease.data.model.UserStats(
+            userId = if (dto.userId != 0) dto.userId else localUserId,
+            firstName = dto.firstName,
+            lastName = dto.lastName,
+            nickname = dto.nickname,
+            gender = try { com.sample.calorease.domain.model.Gender.valueOf(dto.gender) } catch (e: Exception) { com.sample.calorease.domain.model.Gender.MALE },
+            heightCm = dto.heightCm,
+            weightKg = dto.weightKg,
+            age = dto.age,
+            birthday = dto.birthday,
+            activityLevel = try { com.sample.calorease.domain.model.ActivityLevel.valueOf(dto.activityLevel) } catch (e: Exception) { com.sample.calorease.domain.model.ActivityLevel.SEDENTARY },
+            weightGoal = try { com.sample.calorease.domain.model.WeightGoal.valueOf(dto.weightGoal) } catch (e: Exception) { com.sample.calorease.domain.model.WeightGoal.MAINTAIN },
+            targetWeightKg = dto.targetWeightKg,
+            goalCalories = dto.goalCalories,
+            bmiValue = dto.bmiValue,
+            bmiStatus = dto.bmiStatus,
+            idealWeight = dto.idealWeight,
+            bmr = dto.bmr,
+            tdee = dto.tdee,
+            onboardingCompleted = dto.onboardingCompleted,
+            currentOnboardingStep = dto.currentOnboardingStep
         )
     }
 }

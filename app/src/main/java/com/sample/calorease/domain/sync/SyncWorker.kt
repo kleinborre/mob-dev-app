@@ -28,8 +28,14 @@ class SyncWorker @AssistedInject constructor(
             
             // Mark Successful execution for OS cleanup
             Result.success()
+        } catch (e: com.google.firebase.firestore.FirebaseFirestoreException) {
+            // BUGFIX Sprint 4 Phase 6: Expose silent Firestore absences
+            val errorMsg = "CRITICAL FIRESTORE ERROR: ${e.code.name}. Is your Cloud Firestore Database initialized in the Firebase Console?"
+            android.util.Log.e("SyncWorker", errorMsg, e)
+            Result.failure()
         } catch (e: Exception) {
             // If failed (e.g., severe IO or missing user states beyond offline catches), retry
+            android.util.Log.e("SyncWorker", "Standard Sync error", e)
             Result.retry()
         }
     }

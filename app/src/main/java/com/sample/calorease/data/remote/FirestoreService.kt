@@ -10,6 +10,8 @@ import javax.inject.Singleton
 interface FirestoreService {
     suspend fun saveUser(user: UserDto)
     suspend fun getUser(userEmail: String): UserDto?
+    suspend fun saveUserStats(userEmail: String, stats: com.sample.calorease.data.remote.dto.UserStatsDto)
+    suspend fun getUserStats(userEmail: String): com.sample.calorease.data.remote.dto.UserStatsDto?
     suspend fun saveDailyEntry(userEmail: String, entry: DailyEntryDto)
     suspend fun getDailyEntries(userEmail: String): List<DailyEntryDto>
 }
@@ -32,6 +34,18 @@ class FirestoreServiceImpl @Inject constructor() : FirestoreService {
         if (userEmail.isBlank()) return null
         val snapshot = usersCollection.document(userEmail).get().await()
         return snapshot.toObject(UserDto::class.java)
+    }
+
+    override suspend fun saveUserStats(userEmail: String, stats: com.sample.calorease.data.remote.dto.UserStatsDto) {
+        if (userEmail.isBlank()) return
+        // We nest user_stats inside a sub-collection for the specific user
+        usersCollection.document(userEmail).collection("user_stats").document("stats").set(stats).await()
+    }
+
+    override suspend fun getUserStats(userEmail: String): com.sample.calorease.data.remote.dto.UserStatsDto? {
+        if (userEmail.isBlank()) return null
+        val snapshot = usersCollection.document(userEmail).collection("user_stats").document("stats").get().await()
+        return snapshot.toObject(com.sample.calorease.data.remote.dto.UserStatsDto::class.java)
     }
 
     override suspend fun saveDailyEntry(userEmail: String, entry: DailyEntryDto) {

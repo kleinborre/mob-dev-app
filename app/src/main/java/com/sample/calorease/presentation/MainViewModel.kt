@@ -27,6 +27,9 @@ class MainViewModel @Inject constructor(
 
     private fun determineStartDestination() {
         viewModelScope.launch {
+            // BUGFIX Sprint 4 Phase 6: Wipe corrupt DataStore auto-backup caches on fresh installs before anything else
+            sessionManager.checkInstallState()
+            
             // Phase 2: Check if user has ever logged in before
             val hasLoggedInBefore = sessionManager.hasEverLoggedIn()
             val isCurrentlyLoggedIn = sessionManager.isLoggedIn()

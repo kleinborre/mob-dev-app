@@ -58,7 +58,8 @@ data class OnboardingState(
 class OnboardingViewModel @Inject constructor(
     private val repository: LegacyCalorieRepository,
     private val calculatorUseCase: CalculatorUseCase,
-    private val sessionManager: com.sample.calorease.data.session.SessionManager  // Add SessionManager
+    private val sessionManager: com.sample.calorease.data.session.SessionManager,
+    private val syncScheduler: com.sample.calorease.domain.sync.SyncScheduler
 ) : ViewModel() {
     
     private val _onboardingState = MutableStateFlow(OnboardingState())
@@ -107,14 +108,14 @@ class OnboardingViewModel @Inject constructor(
     // Step 1: Name
     fun updateFirstName(firstName: String) {
         _onboardingState.value = _onboardingState.value.copy(
-            firstName = firstName.trimEnd(),  // Trim trailing whitespace
+            firstName = firstName,
             firstNameError = null
         )
     }
     
     fun updateLastName(lastName: String) {
         _onboardingState.value = _onboardingState.value.copy(
-            lastName = lastName.trimEnd(),  // Trim trailing whitespace
+            lastName = lastName,
             lastNameError = null
         )
     }
@@ -541,9 +542,9 @@ class OnboardingViewModel @Inject constructor(
                 
                 val userStats = UserStats(
                     userId = userId,  // Use actual user ID from session, links to UserEntity
-                    firstName = state.firstName,
-                    lastName = state.lastName,
-                    nickname = state.nickname.takeIf { it.isNotBlank() },  // Save only if not blank
+                    firstName = state.firstName.trim(),
+                    lastName = state.lastName.trim(),
+                    nickname = state.nickname.trim().takeIf { it.isNotBlank() },  // Save only if not blank
                     gender = state.gender,
                     heightCm = state.height.toDouble(),
                     weightKg = state.weight.toDouble(),
@@ -601,6 +602,9 @@ class OnboardingViewModel @Inject constructor(
                 val userId = sessionManager.getUserId() ?: return@launch
                 repository.markOnboardingComplete(userId)
                 android.util.Log.d("OnboardingVM", "✅ markOnboardingComplete() SQL UPDATE committed for userId=$userId")
+                
+                // BUGFIX Sprint 4 Phase 6: Push the newly minted Onboarding data straight to Firebase IMMEDIATELY
+                syncScheduler.triggerImmediateSync()
             } catch (e: Exception) {
                 android.util.Log.e("OnboardingVM", "markOnboardingComplete failed", e)
             }
@@ -624,9 +628,9 @@ class OnboardingViewModel @Inject constructor(
                 val existing = repository.getUserStats(userId)
                 val partial = UserStats(
                     userId = userId,
-                    firstName = state.firstName,
-                    lastName = state.lastName,
-                    nickname = state.nickname.takeIf { it.isNotBlank() },
+                    firstName = state.firstName.trim(),
+                    lastName = state.lastName.trim(),
+                    nickname = state.nickname.trim().takeIf { it.isNotBlank() },
                     gender = existing?.gender ?: state.gender,
                     birthday = existing?.birthday ?: state.birthday,
                     age = existing?.age ?: state.age.toIntOrNull() ?: 0,
