@@ -28,11 +28,6 @@ The application features dual-mode functionality with separate dashboards for re
 | :--- | :--- | :--- | :--- |
 | **USER** | `lirioroineil@gmail.com` | `CaloreaseA3105!` | **Active** |
 
-**Profile Data:**
-- **Nickname:** Test User
-- **Stats:** Male, 28 years, 175cm, 75kg
-- **Goal:** Lose weight (Daily Target: ~2,226 kcal)
-
 ### Administrator Account
 | Role | Email | Password | Status |
 | :--- | :--- | :--- | :--- |
