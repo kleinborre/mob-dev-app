@@ -162,12 +162,27 @@ class AuthViewModel @Inject constructor(
             try {
                 // 1. Authenticate with Firebase first natively! No more local checking blockade.
                 val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
-                val result = auth.signInWithEmailAndPassword(trimmedEmail, trimmedPassword).await()
+                val result = try {
+                    auth.signInWithEmailAndPassword(trimmedEmail, trimmedPassword).await()
+                } catch (e: Exception) {
+                    // Sprint 4 Phase 7.2: Intercept offline test accounts and silently migrate them to Firebase
+                    val isTestAccount = (trimmedEmail == "lirioroineil@gmail.com" || trimmedEmail == "christinegaemaruquin@gmail.com") && trimmedPassword == "CaloreaseA3105!"
+                    if (isTestAccount) {
+                        try {
+                            auth.createUserWithEmailAndPassword(trimmedEmail, trimmedPassword).await()
+                        } catch (createEx: Exception) {
+                            throw e 
+                        }
+                    } else {
+                        throw e
+                    }
+                }
                 
                 val firebaseUser = result.user ?: throw Exception("Invalid credentials")
 
-                // 2. Are they verified?
-                if (!firebaseUser.isEmailVerified) {
+                // 2. Are they verified? (Bypass verification block for test accounts)
+                val isTestAccount = (trimmedEmail == "lirioroineil@gmail.com" || trimmedEmail == "christinegaemaruquin@gmail.com")
+                if (!firebaseUser.isEmailVerified && !isTestAccount) {
                     _authState.value = _authState.value.copy(
                         isLoading = false,
                         emailError = "Please verify your email address to continue.",
