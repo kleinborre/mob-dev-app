@@ -163,9 +163,9 @@ class DashboardViewModel @Inject constructor(
     fun updateFoodEntry(entry: DailyEntryEntity) {
         viewModelScope.launch {
             try {
-                calorieRepository.updateDailyEntry(entry)
+                calorieRepository.updateDailyEntry(entry.copy(lastUpdated = System.currentTimeMillis()))
                 // Flow observer auto-refreshes UI
-                _uiEvent.emit(UiEvent.ShowSuccess("success:${entry.foodName} updated"))
+                _uiEvent.emit(UiEvent.ShowSuccess("${entry.foodName} updated"))
                 
                 // Sprint 4 Phase 2: Broker Sync to Firestore
                 syncScheduler.triggerImmediateSync()

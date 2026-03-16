@@ -162,17 +162,17 @@ class AuthViewModel @Inject constructor(
             try {
                 // 1. Authenticate with Firebase first natively! No more local checking blockade.
                 val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                
+                // Sprint 4 Phase 7.3: Silent Firebase Authentication Intercept for Offline Test Accounts
+                val isOfflineTestUser = trimmedEmail == "palenciafrancisadrian@gmail.com" || trimmedEmail == "blitzalexandra19@gmail.com"
+                
                 val result = try {
                     auth.signInWithEmailAndPassword(trimmedEmail, trimmedPassword).await()
                 } catch (e: Exception) {
-                    // Sprint 4 Phase 7.2: Intercept offline test accounts and silently migrate them to Firebase
-                    val isTestAccount = (trimmedEmail == "lirioroineil@gmail.com" || trimmedEmail == "christinegaemaruquin@gmail.com") && trimmedPassword == "CaloreaseA3105!"
-                    if (isTestAccount) {
-                        try {
-                            auth.createUserWithEmailAndPassword(trimmedEmail, trimmedPassword).await()
-                        } catch (createEx: Exception) {
-                            throw e 
-                        }
+                    // If the account does not exist in Firebase yet (but exists offline as our default seed)
+                    if (isOfflineTestUser && (e is com.google.firebase.auth.FirebaseAuthInvalidUserException || e is com.google.firebase.auth.FirebaseAuthInvalidCredentialsException)) {
+                        android.util.Log.d("AuthViewModel", "Silent Auth Intercept: Registering offline Test User natively into Firebase.")
+                        auth.createUserWithEmailAndPassword(trimmedEmail, trimmedPassword).await()
                     } else {
                         throw e
                     }
@@ -180,9 +180,8 @@ class AuthViewModel @Inject constructor(
                 
                 val firebaseUser = result.user ?: throw Exception("Invalid credentials")
 
-                // 2. Are they verified? (Bypass verification block for test accounts)
-                val isTestAccount = (trimmedEmail == "lirioroineil@gmail.com" || trimmedEmail == "christinegaemaruquin@gmail.com")
-                if (!firebaseUser.isEmailVerified && !isTestAccount) {
+                // 2. Are they verified? (Bypass validation strictly for the internal Demo/Admin accounts)
+                if (!firebaseUser.isEmailVerified && !isOfflineTestUser) {
                     _authState.value = _authState.value.copy(
                         isLoading = false,
                         emailError = "Please verify your email address to continue.",

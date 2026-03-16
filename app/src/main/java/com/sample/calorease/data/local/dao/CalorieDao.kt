@@ -152,26 +152,26 @@ interface CalorieDao {
     /**
      * Get all daily entries for a user on a specific date
      */
-    @Query("SELECT * FROM daily_entries WHERE userId = :userId AND date = :date ORDER BY entryId DESC")
+    @Query("SELECT * FROM daily_entries WHERE userId = :userId AND date = :date AND isDeleted = 0 ORDER BY entryId DESC")
     suspend fun getDailyEntries(userId: Int, date: Long): List<DailyEntryEntity>
     
     /**
      * Get total calories for a user on a specific date
      */
-    @Query("SELECT SUM(calories) FROM daily_entries WHERE userId = :userId AND date = :date")
+    @Query("SELECT SUM(calories) FROM daily_entries WHERE userId = :userId AND date = :date AND isDeleted = 0")
     suspend fun getTotalCaloriesForDay(userId: Int, date: Long): Int?
     
     /**
      * Get entries by date range (legacy - no userId filter)
      */
-    @Query("SELECT * FROM daily_entries WHERE date BETWEEN :startDate AND :endDate ORDER BY date DESC")
+    @Query("SELECT * FROM daily_entries WHERE date BETWEEN :startDate AND :endDate AND isDeleted = 0 ORDER BY date DESC")
     suspend fun getDailyEntriesByDateRange(startDate: String, endDate: String): List<DailyEntryEntity>
     
     /**
      * Get all entries for a user within a date range (for Statistics)
      * CRITICAL: Used by StatisticsViewModel to load weekly chart data
      */
-    @Query("SELECT * FROM daily_entries WHERE userId = :userId AND date BETWEEN :startDate AND :endDate ORDER BY date ASC")
+    @Query("SELECT * FROM daily_entries WHERE userId = :userId AND date BETWEEN :startDate AND :endDate AND isDeleted = 0 ORDER BY date ASC")
     suspend fun getDailyEntriesByDateRangeForUser(userId: Int, startDate: Long, endDate: Long): List<DailyEntryEntity>
     
     /**
@@ -190,8 +190,8 @@ interface CalorieDao {
     /**
      * Delete a specific daily entry
      */
-    @Query("DELETE FROM daily_entries WHERE entryId = :entryId")
-    suspend fun deleteDailyEntry(entryId: Int)
+    @Query("UPDATE daily_entries SET isDeleted = 1, lastUpdated = :timestamp WHERE entryId = :entryId")
+    suspend fun deleteDailyEntry(entryId: Int, timestamp: Long)
     
     /**
      * Update an existing daily entry
@@ -203,7 +203,7 @@ interface CalorieDao {
     /**
      * Get entries by meal type for a specific date
      */
-    @Query("SELECT * FROM daily_entries WHERE userId = :userId AND date = :date AND mealType = :mealType ORDER BY entryId DESC")
+    @Query("SELECT * FROM daily_entries WHERE userId = :userId AND date = :date AND mealType = :mealType AND isDeleted = 0 ORDER BY entryId DESC")
     suspend fun getEntriesByMealType(userId: Int, date: Long, mealType: String): List<DailyEntryEntity>
     
     /**
@@ -219,14 +219,14 @@ interface CalorieDao {
      * Emits a new list whenever the underlying table changes.
      * Used by DashboardViewModel for live UI updates.
      */
-    @Query("SELECT * FROM daily_entries WHERE userId = :userId AND date = :date ORDER BY entryId DESC")
+    @Query("SELECT * FROM daily_entries WHERE userId = :userId AND date = :date AND isDeleted = 0 ORDER BY entryId DESC")
     fun getDailyEntriesFlow(userId: Int, date: Long): kotlinx.coroutines.flow.Flow<List<DailyEntryEntity>>
 
     /**
      * Observe total calories for a user on a specific date.
      * Emits null when no entries exist (callers should coerce to 0).
      */
-    @Query("SELECT SUM(calories) FROM daily_entries WHERE userId = :userId AND date = :date")
+    @Query("SELECT SUM(calories) FROM daily_entries WHERE userId = :userId AND date = :date AND isDeleted = 0")
     fun getTotalCaloriesFlow(userId: Int, date: Long): kotlinx.coroutines.flow.Flow<Int?>
 
     /**

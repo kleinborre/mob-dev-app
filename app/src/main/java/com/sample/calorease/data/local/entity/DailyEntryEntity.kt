@@ -39,5 +39,9 @@ data class DailyEntryEntity(
     val mealType: String, // "Breakfast", "Lunch", "Dinner", "Snack"
     
     // Remote Sync (Sprint 4 Phase 1)
-    val lastUpdated: Long = System.currentTimeMillis() // Epoch timestamp for Last-Write-Wins sync
+    val lastUpdated: Long = System.currentTimeMillis(), // Epoch timestamp for Last-Write-Wins sync
+
+    // Remote Sync (Sprint 4 Phase 7.3) - Soft Deletion & Primary Sync Identifiers
+    val isDeleted: Boolean = false,
+    val syncId: String = java.util.UUID.randomUUID().toString()
 )

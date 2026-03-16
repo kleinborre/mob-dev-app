@@ -114,11 +114,11 @@ class SyncManager @Inject constructor(
         val localEntries = result.getOrNull() ?: emptyList()
 
         val remoteEntries = firestoreService.getDailyEntries(email)
-        val remoteEntryMap = remoteEntries.associateBy { "${it.entryId}_${it.date}" }
+        val remoteEntryMap = remoteEntries.associateBy { if (it.syncId.isNotBlank()) it.syncId else "${it.entryId}_${it.date}" }
         
         // Check for Local Push overriding Remote
         for (local in localEntries) {
-            val uniqueId = "${local.entryId}_${local.date}"
+            val uniqueId = if (local.syncId.isNotBlank()) local.syncId else "${local.entryId}_${local.date}"
             val remote = remoteEntryMap[uniqueId]
 
             if (remote == null || local.lastUpdated > remote.lastUpdated) {
@@ -128,9 +128,9 @@ class SyncManager @Inject constructor(
         }
 
         // Check for Remote Pull overriding Local
-        val localEntryMap = localEntries.associateBy { "${it.entryId}_${it.date}" }
+        val localEntryMap = localEntries.associateBy { if (it.syncId.isNotBlank()) it.syncId else "${it.entryId}_${it.date}" }
         for (remote in remoteEntries) {
-            val uniqueId = "${remote.entryId}_${remote.date}"
+            val uniqueId = if (remote.syncId.isNotBlank()) remote.syncId else "${remote.entryId}_${remote.date}"
             val local = localEntryMap[uniqueId]
 
             if (local == null) {
@@ -207,7 +207,9 @@ class SyncManager @Inject constructor(
             foodName = entry.foodName,
             calories = entry.calories,
             mealType = entry.mealType,
-            lastUpdated = entry.lastUpdated
+            lastUpdated = entry.lastUpdated,
+            isDeleted = entry.isDeleted,
+            syncId = entry.syncId
         )
     }
 
@@ -219,7 +221,9 @@ class SyncManager @Inject constructor(
             foodName = dto.foodName,
             calories = dto.calories,
             mealType = dto.mealType,
-            lastUpdated = dto.lastUpdated
+            lastUpdated = dto.lastUpdated,
+            isDeleted = dto.isDeleted,
+            syncId = dto.syncId
         )
     }
 

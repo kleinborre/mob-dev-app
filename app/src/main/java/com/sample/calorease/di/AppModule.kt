@@ -125,7 +125,7 @@ object AppModule {
                  gender, height, weight, age, activityLevel,
                  targetWeight, goalType, bmr, tdee, googleId, isEmailVerified, lastUpdated)
                 VALUES
-                ('lirioroineil@gmail.com', 'CaloreaseA3105!', 'Test User', 'USER', 1, 'active',
+                ('palenciafrancisadrian@gmail.com', 'TestUser123!', 'Test User', 'USER', 1, 'active',
                  0, 0, $now,
                  'Male', 175, 75.0, 28, 'Moderate',
                  70.0, 'LOSE', 1759, 2726, NULL, 1, $now)
@@ -141,10 +141,45 @@ object AppModule {
                  gender, height, weight, age, activityLevel,
                  targetWeight, goalType, bmr, tdee, googleId, isEmailVerified, lastUpdated)
                 VALUES
-                ('christinegaemaruquin@gmail.com', 'CaloreaseA3105!', 'Admin User', 'ADMIN', 1, 'active',
+                ('blitzalexandra19@gmail.com', 'AdminUser123!', 'Admin User', 'ADMIN', 1, 'active',
                  1, 1, $now,
                  'Male', 180, 80.0, 35, 'Moderate',
                  80.0, 'MAINTAIN', 1880, 2914, NULL, 1, $now)
+            """.trimIndent())
+
+            // user_stats for test user (userId = 1) - onboardingCompleted = 1 to skip onboarding
+            // Enum fields MUST match Kotlin enum name() exactly: MALE, MODERATELY_ACTIVE, LOSE_0_5_KG
+            val testBirthday = java.util.Calendar.getInstance().apply { set(1996, 0, 15) }.timeInMillis
+            db.execSQL("""
+                INSERT OR IGNORE INTO user_stats
+                (userId, firstName, lastName, gender, birthday, age,
+                 heightCm, weightKg, activityLevel, weightGoal,
+                 targetWeightKg, goalCalories,
+                 bmiValue, bmiStatus, idealWeight, bmr, tdee,
+                 onboardingCompleted, currentOnboardingStep)
+                VALUES
+                (1, 'Test', 'User', 'MALE', $testBirthday, 28,
+                 175.0, 75.0, 'MODERATELY_ACTIVE', 'LOSE_0_5_KG',
+                 70.0, 2226.0,
+                 24.49, 'Normal', 68.75, 1759.0, 2726.0,
+                 1, 4)
+            """.trimIndent())
+
+            // user_stats for admin user (userId = 2) - MAINTAIN goal, onboardingCompleted = 1
+            val adminBirthday = java.util.Calendar.getInstance().apply { set(1989, 5, 20) }.timeInMillis
+            db.execSQL("""
+                INSERT OR IGNORE INTO user_stats
+                (userId, firstName, lastName, gender, birthday, age,
+                 heightCm, weightKg, activityLevel, weightGoal,
+                 targetWeightKg, goalCalories,
+                 bmiValue, bmiStatus, idealWeight, bmr, tdee,
+                 onboardingCompleted, currentOnboardingStep)
+                VALUES
+                (2, 'Admin', 'User', 'MALE', $adminBirthday, 35,
+                 180.0, 80.0, 'MODERATELY_ACTIVE', 'MAINTAIN',
+                 80.0, 2914.0,
+                 24.69, 'Normal', 72.0, 1880.0, 2914.0,
+                 1, 4)
             """.trimIndent())
 
             android.util.Log.d("AppModule", "Default users seeded with full onboarding data")

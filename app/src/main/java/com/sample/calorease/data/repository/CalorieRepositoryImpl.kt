@@ -38,7 +38,7 @@ class CalorieRepositoryImpl @Inject constructor(
         dao.getTotalCaloriesFlow(userId, date)
 
     override suspend fun deleteDailyEntry(entryId: Int): Result<Unit> = try {
-        dao.deleteDailyEntry(entryId)
+        dao.deleteDailyEntry(entryId, System.currentTimeMillis())
         Result.success(Unit)
     } catch (e: Exception) { Result.failure(e) }
 
