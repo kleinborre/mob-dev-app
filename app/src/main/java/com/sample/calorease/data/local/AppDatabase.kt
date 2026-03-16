@@ -21,7 +21,7 @@ import com.sample.calorease.data.model.UserStats
  */
 @Database(
     entities      = [UserEntity::class, DailyEntryEntity::class, UserStats::class],
-    version       = 16,
+    version       = 17,
     exportSchema  = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -94,6 +94,20 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `users` ADD COLUMN `lastUpdated` INTEGER NOT NULL DEFAULT $currentMillis")
                 db.execSQL("ALTER TABLE `daily_entries` ADD COLUMN `lastUpdated` INTEGER NOT NULL DEFAULT $currentMillis")
                 android.util.Log.d("AppDatabase", "Migration 15→16: added lastUpdated columns")
+            }
+        }
+
+        /**
+         * Migration 16 → 17
+         * - daily_entries: add `isDeleted` INTEGER default 0
+         * - daily_entries: add `syncId` TEXT default empty string (populated by Kotlin universally on update/insert)
+         * Required for Sprint 4 Phase 7.3: Soft Deletes & Unified Firestore Primary Key sync resolutions.
+         */
+        val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `daily_entries` ADD COLUMN `isDeleted` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `daily_entries` ADD COLUMN `syncId` TEXT NOT NULL DEFAULT ''")
+                android.util.Log.d("AppDatabase", "Migration 16→17: added isDeleted and syncId columns")
             }
         }
     }

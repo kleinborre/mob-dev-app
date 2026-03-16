@@ -52,8 +52,9 @@ class FirestoreServiceImpl @Inject constructor() : FirestoreService {
         if (userEmail.isBlank()) return
         // We nest daily entries inside a sub-collection for the specific user
         val entriesCollection = usersCollection.document(userEmail).collection("daily_entries")
-        // We use the entry's unique local timestamp or entryId plus date to guarantee a unique remote ID
-        val uniqueId = "${entry.entryId}_${entry.date}"
+        
+        // Sprint 4 Phase 7.3: Fallback Primary Key bridging for backwards compatibility against pre-migration DBs
+        val uniqueId = if (entry.syncId.isNotBlank()) entry.syncId else "${entry.entryId}_${entry.date}"
         entriesCollection.document(uniqueId).set(entry).await()
     }
 

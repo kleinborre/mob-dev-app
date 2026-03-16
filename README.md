@@ -26,12 +26,12 @@ The application features dual-mode functionality with separate dashboards for re
 ### Regular User Account
 | Role | Email | Password | Status |
 | :--- | :--- | :--- | :--- |
-| **USER** | `lirioroineil@gmail.com` | `CaloreaseA3105!` | **Active** |
+| **USER** | `palenciafrancisadrian@gmail.com` | `TestUser123!` | **Active** |
 
 ### Administrator Account
 | Role | Email | Password | Status |
 | :--- | :--- | :--- | :--- |
-| **ADMIN** | `christinegaemaruquin@gmail.com` | `CaloreaseA3105!` | **Active** |
+| **ADMIN** | `blitzalexandra19@gmail.com` | `AdminUser123!` | **Active** |
 
 **Admin Features:**
 - Full access to user dashboard (personal tracking)
