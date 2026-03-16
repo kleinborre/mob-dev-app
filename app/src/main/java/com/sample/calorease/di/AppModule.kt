@@ -125,7 +125,7 @@ object AppModule {
                  gender, height, weight, age, activityLevel,
                  targetWeight, goalType, bmr, tdee, googleId, isEmailVerified, lastUpdated)
                 VALUES
-                ('test@calorease.com', 'Test123!', 'Test User', 'USER', 1, 'active',
+                ('lirioroineil@gmail.com', 'CaloreaseA3105!', 'Test User', 'USER', 1, 'active',
                  0, 0, $now,
                  'Male', 175, 75.0, 28, 'Moderate',
                  70.0, 'LOSE', 1759, 2726, NULL, 1, $now)
@@ -141,7 +141,7 @@ object AppModule {
                  gender, height, weight, age, activityLevel,
                  targetWeight, goalType, bmr, tdee, googleId, isEmailVerified, lastUpdated)
                 VALUES
-                ('admin@calorease.com', 'Admin123!', 'Admin User', 'ADMIN', 1, 'active',
+                ('christinegaemaruquin@gmail.com', 'CaloreaseA3105!', 'Admin User', 'ADMIN', 1, 'active',
                  1, 1, $now,
                  'Male', 180, 80.0, 35, 'Moderate',
                  80.0, 'MAINTAIN', 1880, 2914, NULL, 1, $now)
