@@ -113,11 +113,15 @@ object AppModule {
      */
     private fun seedDefaultUsers(db: SupportSQLiteDatabase) {
         try {
-            val now = System.currentTimeMillis()
+            // lastUpdated = 1000L: intentionally LOW so Firestore cloud data always wins on sync
+            // (prevents reinstall from making the local seed look "newer" than real user data).
+            // accountCreated = real fixed timestamps so the Admin table shows correct registration dates.
+            val lastUpdated = 1000L
+            // Feb 1, 2026 00:00:00 UTC (app first-install date) — milliseconds
+            val testUserCreated  = 1738368000000L  // Test user registration date
+            val adminUserCreated = 1738368000000L  // Admin user registration date
 
             // Test user: male, 28y, 175cm, 75kg, goal LOSE_0_5_KG
-            // BMR(Mifflin) = 10*75 + 6.25*175 - 5*28 + 5 = 1759
-            // TDEE = 1759 * 1.55 (MODERATELY_ACTIVE) = 2726; goalCals = 2726 - 500 = 2226
             db.execSQL("""
                 INSERT OR IGNORE INTO users
                 (email, password, nickname, role, isActive, accountStatus,
@@ -126,14 +130,12 @@ object AppModule {
                  targetWeight, goalType, bmr, tdee, googleId, isEmailVerified, lastUpdated)
                 VALUES
                 ('palenciafrancisadrian@gmail.com', 'TestUser123!', 'Test User', 'USER', 1, 'active',
-                 0, 0, $now,
+                 0, 0, $testUserCreated,
                  'Male', 175, 75.0, 28, 'Moderate',
-                 70.0, 'LOSE', 1759, 2726, NULL, 1, $now)
+                 70.0, 'LOSE', 1759, 2726, NULL, 1, $lastUpdated)
             """.trimIndent())
 
             // Admin user: male, 35y, 180cm, 80kg, goal MAINTAIN
-            // BMR = 10*80 + 6.25*180 - 5*35 + 5 = 1880
-            // TDEE = 1880 * 1.55 = 2914; goalCals = 2914 (maintain)
             db.execSQL("""
                 INSERT OR IGNORE INTO users
                 (email, password, nickname, role, isActive, accountStatus,
@@ -142,13 +144,12 @@ object AppModule {
                  targetWeight, goalType, bmr, tdee, googleId, isEmailVerified, lastUpdated)
                 VALUES
                 ('blitzalexandra19@gmail.com', 'AdminUser123!', 'Admin User', 'ADMIN', 1, 'active',
-                 1, 1, $now,
+                 1, 1, $adminUserCreated,
                  'Male', 180, 80.0, 35, 'Moderate',
-                 80.0, 'MAINTAIN', 1880, 2914, NULL, 1, $now)
+                 80.0, 'MAINTAIN', 1880, 2914, NULL, 1, $lastUpdated)
             """.trimIndent())
 
-            // user_stats for test user (userId = 1) - onboardingCompleted = 1 to skip onboarding
-            // Enum fields MUST match Kotlin enum name() exactly: MALE, MODERATELY_ACTIVE, LOSE_0_5_KG
+            // user_stats for test user (userId = 1)
             val testBirthday = java.util.Calendar.getInstance().apply { set(1996, 0, 15) }.timeInMillis
             db.execSQL("""
                 INSERT OR IGNORE INTO user_stats
@@ -165,7 +166,7 @@ object AppModule {
                  1, 4)
             """.trimIndent())
 
-            // user_stats for admin user (userId = 2) - MAINTAIN goal, onboardingCompleted = 1
+            // user_stats for admin user (userId = 2)
             val adminBirthday = java.util.Calendar.getInstance().apply { set(1989, 5, 20) }.timeInMillis
             db.execSQL("""
                 INSERT OR IGNORE INTO user_stats

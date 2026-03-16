@@ -226,9 +226,6 @@ fun AdminSettingsScreen(
                     onClick = {
                         showSignOutConfirm = false
                         shouldSignOut = true  // PART 3: Trigger LaunchedEffect to clear session
-                        navController.navigate(Screen.GettingStarted.route) {
-                            popUpTo(0) { inclusive = true }
-                        }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = DeepTeal  // PART 3: Black button

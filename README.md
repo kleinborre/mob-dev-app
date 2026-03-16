@@ -188,18 +188,23 @@ app/src/main/java/com/sample/calorease/
 - Android SDK 34 (API level 34)
 - JDK 25 or later
 
+### ⚠️ Required Credential Files
+
+> **These files are mandatory. The app will not build or gain Firebase/API access without them.**
+
+Both files are available here: **[📁 Google Drive — Credential Files](https://drive.google.com/drive/folders/1-feCcoV-H3BWkAAzh-Z06dMrDjmIX_1e?usp=sharing)**
+
+| File | Install Location |
+| :--- | :--- |
+| `google-services.json` | `app/` *(root of the app module)* |
+| Abstract API Key | Paste into `app/src/main/java/com/sample/calorease/data/remote/api/AbstractEmailApi.kt` |
+
 ### Setup Instructions
 1. Clone the repository
 2. Open project in Android Studio
-3. **Firebase Injection:**
-   - Create a project on [Firebase](https://console.firebase.google.com/).
-   - Enable **Firestore** and **Authentication** (Email/Password & Google OAuth).
-   - Inject your `google-services.json` securely into the `app/` directory root.
-4. **Abstract API Injection:**
-   - Register securely upon [Abstract API](https://www.abstractapi.com/api/email-verification-validation-api) for a free Deliverability API key.
-   - Insert the key securely into `app/src/main/java/com/sample/calorease/data/remote/api/AbstractEmailApi.kt`.
-5. Sync Gradle configurations.
-6. Target an emulator or specific hardware deploying Android 8.0+.
+3. Download both credential files from the Drive link above and install them per the table
+4. Sync Gradle configurations
+5. Target an emulator or device running Android 8.0+
 
 ---
 

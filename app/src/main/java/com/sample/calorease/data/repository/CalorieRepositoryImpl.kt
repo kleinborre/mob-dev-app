@@ -42,6 +42,11 @@ class CalorieRepositoryImpl @Inject constructor(
         Result.success(Unit)
     } catch (e: Exception) { Result.failure(e) }
 
+    override suspend fun physicallyDeleteDailyEntry(entryId: Int): Result<Unit> = try {
+        dao.physicallyDeleteDailyEntry(entryId)
+        Result.success(Unit)
+    } catch (e: Exception) { Result.failure(e) }
+
     override suspend fun updateDailyEntry(entry: DailyEntryEntity): Result<Unit> = try {
         dao.updateDailyEntry(entry)
         Result.success(Unit)
@@ -58,4 +63,7 @@ class CalorieRepositoryImpl @Inject constructor(
     override suspend fun getAllFoodEntriesSortedByDate(userId: Int): Result<List<DailyEntryEntity>> = try {
         Result.success(dao.getAllFoodEntriesSortedByDate(userId))
     } catch (e: Exception) { Result.failure(e) }
+
+    override fun getAllFoodEntriesFlow(userId: Int): kotlinx.coroutines.flow.Flow<List<DailyEntryEntity>> =
+        dao.getAllFoodEntriesFlow(userId)
 }

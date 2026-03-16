@@ -59,7 +59,9 @@ class AuthViewModel @Inject constructor(
     private val legacyRepository: com.sample.calorease.domain.repository.LegacyCalorieRepository,
     private val syncScheduler: com.sample.calorease.domain.sync.SyncScheduler,
     private val syncManager: com.sample.calorease.domain.sync.SyncManager,
-    private val emailValidationRepository: com.sample.calorease.data.repository.EmailValidationRepository
+    private val emailValidationRepository: com.sample.calorease.data.repository.EmailValidationRepository,
+    // Sprint 4 Phase 7.7: Injected for cross-device deactivation enforcement
+    private val firestoreService: com.sample.calorease.data.remote.FirestoreService
 ) : ViewModel() {
     
     private val _authState = MutableStateFlow(AuthState())
@@ -67,6 +69,68 @@ class AuthViewModel @Inject constructor(
 
     private val _uiEvent = MutableSharedFlow<UiEvent>()
     val uiEvent: SharedFlow<UiEvent> = _uiEvent.asSharedFlow()
+
+    // Terminal Final: Known admin emails whose privileges are ALWAYS enforced on login.
+    // If Firestore or Room ever loses adminAccess for these accounts, login repairs them automatically.
+    private val KNOWN_ADMINS = setOf("blitzalexandra19@gmail.com")
+
+    /**
+     * After sync, enforce admin privileges locally and remotely for any known admin email.
+     * This prevents cloud sync or reinstall from stripping the admin role.
+     */
+    private suspend fun enforceAdminPrivileges(email: String) {
+        if (email.lowercase() !in KNOWN_ADMINS) return
+        try {
+            Log.d("AuthViewModel", "enforceAdminPrivileges: restoring admin for $email")
+
+            // 1. Ensure local Room record has correct admin flags
+            val localUser = userRepository.getUserByEmail(email).getOrNull() ?: return
+            if (!localUser.adminAccess || !localUser.isSuperAdmin || localUser.role != "ADMIN") {
+                val repaired = localUser.copy(
+                    role = "ADMIN",
+                    adminAccess = true,
+                    isSuperAdmin = true,
+                    lastUpdated = System.currentTimeMillis()
+                )
+                userRepository.updateUser(repaired)
+                Log.d("AuthViewModel", "Admin Room record repaired for $email")
+            }
+
+            // 2. Ensure Firestore document has correct admin flags
+            try {
+                val remoteDoc = firestoreService.getUser(email)
+                if (remoteDoc != null && (!remoteDoc.adminAccess || !remoteDoc.isSuperAdmin || remoteDoc.role != "ADMIN")) {
+                    val repairedDto = remoteDoc.copy(
+                        role = "ADMIN",
+                        adminAccess = true,
+                        isSuperAdmin = true,
+                        lastUpdated = System.currentTimeMillis()
+                    )
+                    firestoreService.saveUser(repairedDto)
+                    Log.d("AuthViewModel", "Admin Firestore record repaired for $email")
+                } else if (remoteDoc == null) {
+                    // No cloud doc at all — create it with admin flags
+                    val freshAdminDto = com.sample.calorease.data.remote.dto.UserDto(
+                        userId = userRepository.getUserByEmail(email).getOrNull()?.userId ?: 0,
+                        email = email,
+                        role = "ADMIN",
+                        adminAccess = true,
+                        isSuperAdmin = true,
+                        isActive = true,
+                        accountStatus = "active",
+                        isEmailVerified = true,
+                        lastUpdated = System.currentTimeMillis()
+                    )
+                    firestoreService.saveUser(freshAdminDto)
+                    Log.d("AuthViewModel", "Admin Firestore doc created from scratch for $email")
+                }
+            } catch (fsEx: Exception) {
+                Log.w("AuthViewModel", "Firestore admin repair offline — will retry on next sync", fsEx)
+            }
+        } catch (e: Exception) {
+            Log.e("AuthViewModel", "enforceAdminPrivileges error", e)
+        }
+    }
     
     fun updateEmail(email: String) {
         val trimmedEmail = email.trim()
@@ -190,21 +254,31 @@ class AuthViewModel @Inject constructor(
                     return@launch
                 }
 
-                // 3. Since Firebase passed, we guarantee they own the account.
-                // Do they exist locally yet? (Reinstall detection)
+                // 3. Sprint 4 Phase 7.7: Check Firestore (authoritative source) for deactivation FIRST.
+                // This ensures admin deactivations are enforced cross-device even before Room syncs.
+                val remoteUserDoc = firestoreService.getUser(trimmedEmail)
+                if (remoteUserDoc != null && remoteUserDoc.accountStatus == "deactivated") {
+                    Log.w("AuthViewModel", "BLOCKED: Account $trimmedEmail is deactivated in Firestore.")
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        emailError = "Your account has been deactivated by an administrator. Please contact support."
+                    )
+                    return@launch
+                }
+
+                // 4. Do they exist locally yet? (Reinstall detection)
                 val existingLocal = userRepository.getUserByEmail(trimmedEmail).getOrNull()
                 val user: UserEntity
 
                 if (existingLocal == null) {
                     Log.d("AuthViewModel", "Fresh Install Detected during Manual Login. Constructing local shell.")
-                    // Create phantom shell user to hold session
                     val newUser = UserEntity(
                         email = trimmedEmail,
-                        password = trimmedPassword, 
-                        nickname = "Loading...", // Will be overwritten by SyncManager
+                        password = trimmedPassword,
+                        nickname = "Loading...",
                         role = "USER",
                         isActive = true,
-                        isEmailVerified = true, // We literally just checked this in Firebase
+                        isEmailVerified = true,
                         gender = "Male",
                         height = 170,
                         weight = 70.0,
@@ -218,14 +292,14 @@ class AuthViewModel @Inject constructor(
                     val newId = userRepository.registerUser(newUser).getOrThrow()
                     user = userRepository.getUserById(newId.toInt()).getOrThrow()!!
                 } else {
-                    // Update email verified flag just in case
                     if (!existingLocal.isEmailVerified) {
                         userRepository.updateEmailVerified(existingLocal.userId, true)
                     }
+                    // Also keep local DB in sync with remote deactivation state
                     if (existingLocal.accountStatus == "deactivated") {
                         _authState.value = _authState.value.copy(
                             isLoading = false,
-                            emailError = "This account is no longer accessible as it was deleted. Please contact support."
+                            emailError = "Your account has been deactivated by an administrator. Please contact support."
                         )
                         return@launch
                     }
@@ -249,6 +323,10 @@ class AuthViewModel @Inject constructor(
                 // Sprint 4 Phase 6: Sync execution MUST block here to pull data BEFORE making Navigation decisions
                 syncManager.performSync()
 
+                // Terminal Final: Repair admin privileges if this is a known admin account.
+                // Runs after sync so we never accidentally get overwritten back to USER role.
+                enforceAdminPrivileges(trimmedEmail)
+
                 // 6. Navigate
                 val userStats = userRepository.getUserStats(user.userId)
                 val onboardingCompleted = userStats?.onboardingCompleted ?: false
@@ -266,11 +344,22 @@ class AuthViewModel @Inject constructor(
                 Log.d("AuthViewModel", "Login fully completed via Firebase Auth.")
                 
             } catch (e: Exception) {
-                // Firebase rejected the credentials or network failed
-                _authState.value = _authState.value.copy(
-                    isLoading = false,
-                    passwordError = "Incorrect email or password, or account doesn't exist"
-                )
+                // If the user signed up natively through Google, they don't have an offline password
+                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                val methods = try { auth.fetchSignInMethodsForEmail(trimmedEmail).await().signInMethods } catch (ignored: Exception) { null }
+                
+                if (methods?.contains("google.com") == true && !methods.contains("password")) {
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        passwordError = "This account uses Google Sign-In. Please use the Google button, or reset your password to enable manual login."
+                    )
+                } else {
+                    // Standard Firebase credential rejection
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        passwordError = "Incorrect email or password, or account doesn't exist"
+                    )
+                }
                 Log.e("AuthViewModel", "Login failed", e)
             }
         }
@@ -320,41 +409,53 @@ class AuthViewModel @Inject constructor(
                 val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
                 val result = auth.createUserWithEmailAndPassword(email, password).await()
                 val firebaseUser = result.user
+                // Sprint 4 Phase 7.7: NOTE — do NOT push to Firestore here.
+                // Ghost Firestore documents were causing duplicate rows in Admin table when
+                // users abandon onboarding. Firestore sync happens on first successful login
+                // via syncManager.performSync() after email verification.
 
                 if (firebaseUser != null) {
                     // Send verification email
                     firebaseUser.sendEmailVerification().await()
                     Log.d("AuthViewModel", "Verification email sent to $email")
 
-                    // Create offline user in Room with isEmailVerified = false
+                    // Terminal Final: Determine a globally unique userId BEFORE inserting into Room.
+                    // Room auto-increment restarts from 1 after reinstall, causing collisions with
+                    // existing Firestore user IDs. Query Firestore max first, use max+1.
+                    val firestoreMaxId = try { firestoreService.getMaxUserId() } catch (e: Exception) { 0 }
+                    val localMaxId    = try { userRepository.getAllUsers().getOrNull()?.maxOfOrNull { it.userId } ?: 0 } catch (e: Exception) { 0 }
+                    val nextUserId    = maxOf(firestoreMaxId, localMaxId) + 1
+                    Log.d("AuthViewModel", "Assigning new userId=$nextUserId (firestoreMax=$firestoreMaxId, localMax=$localMaxId)")
+
+                    // Create offline user in Room — userId placeholder; corrected immediately after
                     val newUser = UserEntity(
-                        email = email,
-                        password = password.trim(),
-                        nickname = "",
-                        role = "USER",
-                        isActive = true,
+                        userId        = nextUserId,   // Force the globally-unique ID
+                        email         = email,
+                        password      = password.trim(),
+                        nickname      = "",
+                        role          = "USER",
+                        isActive      = true,
                         isEmailVerified = false,
-                        gender = "Male",
-                        height = 170, 
-                        weight = 70.0,
-                        age = 25,
+                        gender        = "Male",
+                        height        = 170,
+                        weight        = 70.0,
+                        age           = 25,
                         activityLevel = "Moderate",
-                        targetWeight = 65.0,
-                        goalType = "MAINTAIN",
-                        bmr = 1500,
-                        tdee = 2000
+                        targetWeight  = 65.0,
+                        goalType      = "MAINTAIN",
+                        bmr           = 1500,
+                        tdee          = 2000,
+                        accountCreated = System.currentTimeMillis()
                     )
                     userRepository.registerUser(newUser).getOrThrow()
+                    Log.d("AuthViewModel", "New user created with userId=$nextUserId in Room")
 
                     _authState.value = _authState.value.copy(
                         isLoading = false,
                         isSignUpSuccess = true
                     )
                     Log.d("AuthViewModel", "Sign up successful, verification required")
-                    
-                    // Sprint 4 Phase 2: Broker Sync to Firestore upon sign-up natively
                     syncScheduler.schedulePeriodicSync()
-                    syncScheduler.triggerImmediateSync()
                 }
             } catch (e: Exception) {
                 _authState.value = _authState.value.copy(
@@ -404,6 +505,17 @@ class AuthViewModel @Inject constructor(
 
                 Log.d("AuthViewModel", "Google Sign-In Firebase OK: uid=$googleId, email=$email")
 
+                // Sprint 4 Phase 7.7: Check REMOTE Firestore for deactivation before ANY local access.
+                val remoteGoogleDoc = firestoreService.getUser(email)
+                if (remoteGoogleDoc != null && remoteGoogleDoc.accountStatus == "deactivated") {
+                    Log.w("AuthViewModel", "BLOCKED Google OAuth: $email is deactivated in Firestore.")
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        googleSignInError = "Your account has been deactivated by an administrator. Please contact support."
+                    )
+                    return@launch
+                }
+
                 // ── Step 2: Lookup by googleId ─────────────────────────────────
                 val byGoogleId = userRepository.getUserByGoogleId(googleId).getOrNull()
                 val user: com.sample.calorease.data.local.entity.UserEntity
@@ -416,17 +528,35 @@ class AuthViewModel @Inject constructor(
                 } else {
                     // ── Step 3: Lookup by email ────────────────────────────────
                     val byEmail = userRepository.getUserByEmail(email).getOrNull()
-
+                    
                     if (byEmail != null) {
                         // Existing manual account — link google id
                         userRepository.linkGoogleId(byEmail.userId, googleId)
                         user = byEmail
                         Log.d("AuthViewModel", "Linked Google to existing account userId=${user.userId}")
+                        
+                        // Sprint 4 Phase 7.4: Prevent Firebase from nuking the unverified manual password credential!
+                        // If they have a valid local password established, use updatePassword to securely inject the provider back into the session
+                        if (user.password.isNotBlank() && user.password != googleId) {
+                            try {
+                                firebaseUser.updatePassword(user.password).await()
+                                Log.d("AuthViewModel", "Successfully restored underlying Password provider saving Manual Login capabilities.")
+                            } catch (e: Exception) {
+                                Log.w("AuthViewModel", "Silent password restoration skipped", e)
+                            }
+                        }
                     } else {
-                        // ── Step 4: Create new local user ──────────────────────
+                        // ── Step 4: Create new local user (Google OAuth, first time) ──────────
+                        // Terminal Final: Query Firestore for max userId to avoid collision on reinstall
+                        val fsMax    = try { firestoreService.getMaxUserId() } catch (e: Exception) { 0 }
+                        val localMax = try { userRepository.getAllUsers().getOrNull()?.maxOfOrNull { it.userId } ?: 0 } catch (e: Exception) { 0 }
+                        val nextId   = maxOf(fsMax, localMax) + 1
+                        Log.d("AuthViewModel", "Google new user: assigning userId=$nextId (fsMax=$fsMax, localMax=$localMax)")
+
                         val newUser = com.sample.calorease.data.local.entity.UserEntity(
+                            userId       = nextId,
                             email        = email,
-                            password     = googleId,      // placeholder — user never enters a password
+                            password     = googleId,      // placeholder
                             nickname     = firstName,
                             role         = "USER",
                             isActive     = true,
@@ -439,12 +569,12 @@ class AuthViewModel @Inject constructor(
                             targetWeight = 65.0,
                             goalType     = "MAINTAIN",
                             bmr          = 1500,
-                            tdee         = 2000
+                            tdee         = 2000,
+                            accountCreated = System.currentTimeMillis()
                         )
-                        val newId = userRepository.registerUser(newUser)
-                            .getOrThrow()
-                        user = userRepository.getUserById(newId.toInt()).getOrThrow()
-                            ?: throw Exception("Could not load newly created user")
+                        userRepository.registerUser(newUser).getOrThrow()
+                        user = userRepository.getUserById(nextId).getOrThrow()
+                            ?: throw Exception("Could not load newly created Google user (userId=$nextId)")
                         Log.d("AuthViewModel", "Created new Google user userId=${user.userId}")
                     }
                 }
@@ -458,6 +588,9 @@ class AuthViewModel @Inject constructor(
                 // ── SYNCHRONOUS PULL FROM FIREBASE ──────────────────────────────
                 // Sprint 4 Phase 6: Sync execution MUST block here to pull data BEFORE making Navigation decisions
                 syncManager.performSync()
+
+                // Terminal Final: Repair admin privileges for known admin accounts.
+                enforceAdminPrivileges(email)
 
                 // ── Step 6: Decide navigation ───────────────────────────────────
                 val userStats         = userRepository.getUserStats(user.userId)

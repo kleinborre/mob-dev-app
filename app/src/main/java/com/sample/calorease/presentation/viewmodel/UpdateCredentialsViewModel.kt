@@ -38,7 +38,8 @@ data class UpdateCredentialsState(
 @HiltViewModel
 class UpdateCredentialsViewModel @Inject constructor(
     private val userRepository: UserRepository,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val syncScheduler: com.sample.calorease.domain.sync.SyncScheduler
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(UpdateCredentialsState())
@@ -176,6 +177,9 @@ class UpdateCredentialsViewModel @Inject constructor(
                     userRepository.updateUserPassword(localUserId, currentState.newPasswordInput)
                     Log.d("UpdateCredentialsVM", "Password updated successfully")
                 }
+                
+                // Sprint 4 Phase 7.4.1: Massively sync to Firestore immediately after credentials alter saving edits across re-installs.
+                syncScheduler.triggerImmediateSync()
 
                 _state.value = _state.value.copy(
                     isUpdating = false,

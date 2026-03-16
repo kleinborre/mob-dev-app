@@ -11,6 +11,8 @@ import com.sample.calorease.domain.repository.UserRepository
 import com.sample.calorease.domain.usecase.CalculatorUseCase
 import com.sample.calorease.domain.sync.SyncScheduler
 import com.sample.calorease.presentation.ui.UiEvent
+import com.sample.calorease.data.remote.FirestoreService
+import com.sample.calorease.data.remote.dto.DailyEntryDto
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -45,7 +47,8 @@ class DashboardViewModel @Inject constructor(
     private val sessionManager: SessionManager,
     private val calculatorUseCase: CalculatorUseCase,
     private val legacyRepository: LegacyCalorieRepository,
-    private val syncScheduler: SyncScheduler
+    private val syncScheduler: SyncScheduler,
+    private val firestoreService: FirestoreService
 ) : ViewModel() {
 
     private val _dashboardState = MutableStateFlow(DashboardState())
@@ -130,16 +133,26 @@ class DashboardViewModel @Inject constructor(
                     calories = calories,
                     mealType = mealType
                 )
-                calorieRepository.addDailyEntry(entry)
-                // Flow observer auto-refreshes UI — no manual loadDashboardData() call needed
-                _uiEvent.emit(UiEvent.ShowSuccess("$foodName added successfully!"))
                 
-                // Sprint 4 Phase 2: Broker Sync to Firestore
-                syncScheduler.triggerImmediateSync()
+                // Sprint 4 Phase 7.6: DB-ID Explicit Linking
+                val generatedId = calorieRepository.addDailyEntry(entry).getOrThrow()
+                val syncedEntry = entry.copy(entryId = generatedId.toInt())
+                
+                // Sprint 4 Phase 7.8: Offline-safe Firestore push. Local Room write always succeeds.
+                // If online, push immediately. If offline, WorkManager queues it on network restore.
+                val email = sessionManager.getUserEmail() ?: ""
+                if (email.isNotBlank()) {
+                    try {
+                        firestoreService.saveDailyEntry(email, mapToDto(syncedEntry))
+                    } catch (syncEx: Exception) {
+                        android.util.Log.w("DashboardViewModel", "Offline: food add queued for sync. ${syncEx.message}")
+                    }
+                }
+                
+                _uiEvent.emit(UiEvent.ShowSuccess("$foodName added successfully!"))
+                try { syncScheduler.triggerImmediateSync() } catch (ignored: Exception) {}
             } catch (e: Exception) {
-                _dashboardState.value = _dashboardState.value.copy(
-                    error = "Failed to add entry: ${e.message}"
-                )
+                _dashboardState.value = _dashboardState.value.copy(error = "Failed to add entry: ${e.message}")
                 _uiEvent.emit(UiEvent.ShowError("Failed to add entry"))
             }
         }
@@ -148,12 +161,29 @@ class DashboardViewModel @Inject constructor(
     fun deleteFoodEntry(entryId: Int) {
         viewModelScope.launch {
             try {
-                calorieRepository.deleteDailyEntry(entryId)
-                // Flow observer auto-refreshes UI
-                _uiEvent.emit(UiEvent.ShowSuccess("Entry removed"))
+                val userId = sessionManager.getUserId() ?: return@launch
+                val email = sessionManager.getUserEmail() ?: ""
+                val now = System.currentTimeMillis()
+
+                // Sprint 4 Phase 7.9: True Physical Deletes
+                val allEntries = calorieRepository.getAllFoodEntriesSortedByDate(userId).getOrNull() ?: emptyList()
+                val entryToDelete = allEntries.find { it.entryId == entryId }
                 
-                // Sprint 4 Phase 2: Broker Sync to Firestore
-                syncScheduler.triggerImmediateSync()
+                // 1. Permanently wipe from local Room Db (no more soft-delete)
+                calorieRepository.physicallyDeleteDailyEntry(entryId)
+
+                // 2. Permanently wipe from Firestore (natively offline-safe via Android SDK queuing)
+                if (email.isNotBlank() && entryToDelete != null) {
+                    val uniqueId = if (entryToDelete.syncId.isNotBlank()) entryToDelete.syncId else "${entryToDelete.entryId}_${entryToDelete.date}"
+                    try {
+                        firestoreService.deleteDailyEntry(email, uniqueId)
+                    } catch (syncEx: Exception) {
+                        android.util.Log.w("DashboardViewModel", "Offline: food delete queued by native SDK. ${syncEx.message}")
+                    }
+                }
+
+                _uiEvent.emit(UiEvent.ShowSuccess("Entry removed"))
+                try { syncScheduler.triggerImmediateSync() } catch (ignored: Exception) {}
             } catch (e: Exception) {
                 _uiEvent.emit(UiEvent.ShowError("Failed to delete entry"))
             }
@@ -163,12 +193,21 @@ class DashboardViewModel @Inject constructor(
     fun updateFoodEntry(entry: DailyEntryEntity) {
         viewModelScope.launch {
             try {
-                calorieRepository.updateDailyEntry(entry.copy(lastUpdated = System.currentTimeMillis()))
-                // Flow observer auto-refreshes UI
-                _uiEvent.emit(UiEvent.ShowSuccess("${entry.foodName} updated"))
+                val updatedEntry = entry.copy(lastUpdated = System.currentTimeMillis())
+                calorieRepository.updateDailyEntry(updatedEntry)
                 
-                // Sprint 4 Phase 2: Broker Sync to Firestore
-                syncScheduler.triggerImmediateSync()
+                // Sprint 4 Phase 7.8: Offline-safe Firestore push
+                val email = sessionManager.getUserEmail() ?: ""
+                if (email.isNotBlank()) {
+                    try {
+                        firestoreService.saveDailyEntry(email, mapToDto(updatedEntry))
+                    } catch (syncEx: Exception) {
+                        android.util.Log.w("DashboardViewModel", "Offline: food update queued for sync. ${syncEx.message}")
+                    }
+                }
+                
+                _uiEvent.emit(UiEvent.ShowSuccess("${entry.foodName} updated"))
+                try { syncScheduler.triggerImmediateSync() } catch (ignored: Exception) {}
             } catch (e: Exception) {
                 _uiEvent.emit(UiEvent.ShowError("Failed to update entry"))
             }
@@ -194,6 +233,23 @@ class DashboardViewModel @Inject constructor(
     fun updateTempFoodName(v: String) { _dashboardState.value = _dashboardState.value.copy(tempFoodName = v) }
     fun updateTempCalories(v: String) { _dashboardState.value = _dashboardState.value.copy(tempCalories = v) }
     fun updateTempMealType(v: String) { _dashboardState.value = _dashboardState.value.copy(tempMealType = v) }
+    fun dismissError() {
+        _dashboardState.value = _dashboardState.value.copy(error = null)
+    }
+    
+    private fun mapToDto(entry: DailyEntryEntity): DailyEntryDto {
+        return DailyEntryDto(
+            entryId = entry.entryId,
+            userId = entry.userId,
+            date = entry.date,
+            foodName = entry.foodName,
+            calories = entry.calories,
+            mealType = entry.mealType,
+            lastUpdated = entry.lastUpdated,
+            isDeleted = entry.isDeleted,
+            syncId = entry.syncId
+        )
+    }
     fun clearTempInput() {
         _dashboardState.value = _dashboardState.value.copy(
             tempFoodName = "", tempCalories = "", tempMealType = "Breakfast", showAddDialog = false

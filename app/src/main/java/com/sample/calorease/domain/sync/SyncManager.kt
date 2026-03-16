@@ -116,31 +116,43 @@ class SyncManager @Inject constructor(
         val remoteEntries = firestoreService.getDailyEntries(email)
         val remoteEntryMap = remoteEntries.associateBy { if (it.syncId.isNotBlank()) it.syncId else "${it.entryId}_${it.date}" }
         
-        // Check for Local Push overriding Remote
+        // ── Local → Remote (Push) ──────────────────────────────────────────────
+        // Push ALL local entries including isDeleted=1 ones so Firestore stays authoritative.
         for (local in localEntries) {
             val uniqueId = if (local.syncId.isNotBlank()) local.syncId else "${local.entryId}_${local.date}"
             val remote = remoteEntryMap[uniqueId]
 
             if (remote == null || local.lastUpdated > remote.lastUpdated) {
-                Log.d("SyncManager", "Pushing local DailyEntry $uniqueId to Remote")
+                Log.d("SyncManager", "Pushing local DailyEntry $uniqueId to Remote (isDeleted=${local.isDeleted})")
                 firestoreService.saveDailyEntry(email, mapToDto(local))
             }
         }
 
-        // Check for Remote Pull overriding Local
+        // ── Remote → Local (Pull) ──────────────────────────────────────────────
         val localEntryMap = localEntries.associateBy { if (it.syncId.isNotBlank()) it.syncId else "${it.entryId}_${it.date}" }
         for (remote in remoteEntries) {
             val uniqueId = if (remote.syncId.isNotBlank()) remote.syncId else "${remote.entryId}_${remote.date}"
             val local = localEntryMap[uniqueId]
 
             if (local == null) {
-                // Meaning it was added remotely but never fetched locally
+                // Sprint 4 Phase 7.8: CRITICAL FIX — Skip remotely-deleted entries entirely.
+                // Before this fix, reinstalling the app would re-create deleted food entries
+                // because SyncManager blindly inserted ANY remote record not present locally.
+                if (remote.isDeleted) {
+                    Log.d("SyncManager", "Skipping remote isDeleted DailyEntry $uniqueId — stays deleted.")
+                    continue
+                }
                 Log.d("SyncManager", "Pulling NEW remote DailyEntry $uniqueId to Local")
                 calorieRepository.addDailyEntry(mapToEntity(remote, localUserId))
             } else if (remote.lastUpdated > local.lastUpdated) {
-                // Remote update is newer
-                Log.d("SyncManager", "Pulling UPDATED remote DailyEntry $uniqueId to Local")
-                calorieRepository.updateDailyEntry(mapToEntity(remote, localUserId).copy(entryId = local.entryId))
+                if (remote.isDeleted && !local.isDeleted) {
+                    // Remote deletion is authoritative — soft-delete the local record
+                    Log.d("SyncManager", "Remote deleted DailyEntry $uniqueId — propagating soft-delete to Room.")
+                    calorieRepository.deleteDailyEntry(local.entryId)
+                } else {
+                    Log.d("SyncManager", "Pulling UPDATED remote DailyEntry $uniqueId to Local")
+                    calorieRepository.updateDailyEntry(mapToEntity(remote, localUserId).copy(entryId = local.entryId))
+                }
             }
         }
     }
