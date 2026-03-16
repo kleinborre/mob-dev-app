@@ -26,17 +26,12 @@ The application features dual-mode functionality with separate dashboards for re
 ### Regular User Account
 | Role | Email | Password | Status |
 | :--- | :--- | :--- | :--- |
-| **USER** | `test@calorease.com` | `Test123!` | **Active** |
-
-**Profile Data:**
-- **Nickname:** TestUser
-- **Stats:** Male, 28 years, 175cm, 75kg
-- **Goal:** Lose weight (Daily Target: ~2,078 kcal)
+| **USER** | `lirioroineil@gmail.com` | `CaloreaseA3105!` | **Active** |
 
 ### Administrator Account
 | Role | Email | Password | Status |
 | :--- | :--- | :--- | :--- |
-| **ADMIN** | `admin@calorease.com` | `Admin123!` | **Active** |
+| **ADMIN** | `christinegaemaruquin@gmail.com` | `CaloreaseA3105!` | **Active** |
 
 **Admin Features:**
 - Full access to user dashboard (personal tracking)
