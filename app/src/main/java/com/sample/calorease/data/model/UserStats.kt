@@ -35,7 +35,7 @@ data class UserStats(
     val targetWeightKg: Double,  // in kg
     val goalCalories: Double,    // Daily calorie goal
     
-    // ✅ STEP 4 FIX: Add calculated health metrics to database
+    // STEP 4 FIX: Add calculated health metrics to database
     val bmiValue: Double = 0.0,      // Body Mass Index
     val bmiStatus: String = "",       // BMI category (Underweight, Normal, etc.)
     val idealWeight: Double = 0.0,    // Ideal weight based on height

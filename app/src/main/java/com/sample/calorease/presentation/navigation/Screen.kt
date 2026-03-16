@@ -14,8 +14,11 @@ sealed class Screen(val route: String) {
     data object Settings : Screen("settings")
     data object Account : Screen("account")
     
-    // ✅ Phase 4: Admin Routes
+    // Phase 4: Admin Routes
     data object AdminUsers : Screen("admin_users")
     data object AdminStats : Screen("admin_stats")
     data object AdminSettings : Screen("admin_settings")
+
+    // Phase 4: Sprint 3.1
+    data object UpdateCredentials : Screen("update_credentials")
 }

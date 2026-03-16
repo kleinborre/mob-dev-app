@@ -1,8 +1,10 @@
 package com.sample.calorease.presentation.viewmodel
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.tasks.Tasks
 import com.sample.calorease.data.local.entity.UserEntity
 import com.sample.calorease.data.model.UserStats
 import com.sample.calorease.data.repository.LegacyCalorieRepository
@@ -12,12 +14,19 @@ import com.sample.calorease.domain.model.Gender
 import com.sample.calorease.domain.model.WeightGoal
 import com.sample.calorease.domain.repository.UserRepository
 import com.sample.calorease.domain.usecase.CalculatorUseCase
+import com.sample.calorease.presentation.ui.UiEvent
+import com.sample.calorease.presentation.util.NetworkUtils
 import com.sample.calorease.util.ValidationUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 data class AuthState(
@@ -32,30 +41,67 @@ data class AuthState(
     val isLoading: Boolean = false,
     val isLoginSuccess: Boolean = false,
     val isSignUpSuccess: Boolean = false,
-    // ✅ NEW: Navigation destination flags
+    // Navigation destination flags
     val navigateToDashboard: Boolean = false,
-    val navigateToOnboarding: Boolean = false
+    val navigateToOnboarding: Boolean = false,
+    // Google Sign-In error (null = no error)
+    val googleSignInError: String? = null,
+    // Phase 3: Email Verification State
+    val showResendVerification: Boolean = false
 )
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val userRepository: UserRepository,
     private val sessionManager: SessionManager,
     private val calculatorUseCase: CalculatorUseCase,
-    private val legacyRepository: com.sample.calorease.domain.repository.LegacyCalorieRepository
+    private val legacyRepository: com.sample.calorease.domain.repository.LegacyCalorieRepository,
+    private val syncScheduler: com.sample.calorease.domain.sync.SyncScheduler,
+    private val emailValidationRepository: com.sample.calorease.data.repository.EmailValidationRepository
 ) : ViewModel() {
     
     private val _authState = MutableStateFlow(AuthState())
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
+
+    private val _uiEvent = MutableSharedFlow<UiEvent>()
+    val uiEvent: SharedFlow<UiEvent> = _uiEvent.asSharedFlow()
     
     fun updateEmail(email: String) {
         val trimmedEmail = email.trim()
-        Log.d("AuthViewModel", "📧 updateEmail called: input='$email' → trimmed='$trimmedEmail'")
+        Log.d("AuthViewModel", "updateEmail called: input='$email', trimmed='$trimmedEmail'")
         _authState.value = _authState.value.copy(
             email = trimmedEmail,
             emailError = null
         )
-        Log.d("AuthViewModel", "📧 State updated: email in state='${_authState.value.email}'")
+        Log.d("AuthViewModel", "State updated: email='${_authState.value.email}'")
+    }
+    
+    // Sprint 4 Phase 4: Debounced API Email Deliverability Check
+    private var emailValidationJob: kotlinx.coroutines.Job? = null
+    
+    fun updateSignUpEmail(email: String) {
+        val trimmedEmail = email.trim()
+        _authState.value = _authState.value.copy(
+            email = trimmedEmail,
+            emailError = null
+        )
+        
+        emailValidationJob?.cancel()
+        emailValidationJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(800L) // Debounce typing
+            
+            // Only fire expensive remote API if basic offline regex passes first
+            if (trimmedEmail.isNotEmpty() && ValidationUtils.validateEmail(trimmedEmail) == null) {
+                // Failsafe check — Abstract API live validation
+                val result = emailValidationRepository.validateEmailLive(trimmedEmail)
+                val errorString = result.getOrNull()
+                
+                if (errorString != null) {
+                    _authState.value = _authState.value.copy(emailError = errorString)
+                }
+            }
+        }
     }
     
     fun updatePassword(password: String) {
@@ -80,14 +126,14 @@ class AuthViewModel @Inject constructor(
     }
     
     fun login(email: String = _authState.value.email, password: String = _authState.value.password) {
-        Log.d("AuthViewModel", "🔐 login() called")
-        Log.d("AuthViewModel", "🔐 Email parameter: '$email'")
-        Log.d("AuthViewModel", "🔐 Password length: ${password.length}")
+        Log.d("AuthViewModel", "login() called")
+        Log.d("AuthViewModel", "Email parameter: '$email'")
+        Log.d("AuthViewModel", "Password length: ${password.length}")
         
         // Trim the passed parameters
         val trimmedEmail = email.trim()
         val trimmedPassword = password.trimEnd()
-        Log.d("AuthViewModel", "🔐 Email AFTER trim: '$trimmedEmail'")
+        Log.d("AuthViewModel", "Email after trim: '$trimmedEmail'")
         
         // Validate
         val emailError = ValidationUtils.validateEmail(trimmedEmail)
@@ -104,6 +150,13 @@ class AuthViewModel @Inject constructor(
         
         _authState.value = _authState.value.copy(isLoading = true)
         
+        // Sprint 4 Phase 3: Offline Block
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            _authState.value = _authState.value.copy(isLoading = false)
+            viewModelScope.launch { _uiEvent.emit(UiEvent.ShowError("No network connection")) }
+            return
+        }
+        
         viewModelScope.launch {
             // Check if email exists first for better error messages
             userRepository.getUserByEmail(trimmedEmail).onSuccess { existingUser ->
@@ -117,7 +170,7 @@ class AuthViewModel @Inject constructor(
                     return@launch
                 }
                 
-                // ✅ Phase 3: Check if account is deactivated
+                // Phase 3: Check if account is deactivated
                 if (existingUser.accountStatus == "deactivated") {
                     _authState.value = _authState.value.copy(
                         isLoading = false,
@@ -127,40 +180,70 @@ class AuthViewModel @Inject constructor(
                     return@launch
                 }
                 
-                // Email exists and account active, try login
+                // Email exists and account active, check verification
+                if (!existingUser.isEmailVerified) {
+                    try {
+                        val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                        val result = auth.signInWithEmailAndPassword(trimmedEmail, trimmedPassword).await()
+                        
+                        if (result.user?.isEmailVerified == true) {
+                            // User clicked the link! Update Room and proceed
+                            userRepository.updateEmailVerified(existingUser.userId, true)
+                            Log.d("AuthViewModel", "Email verified via Firebase. Room updated.")
+                        } else {
+                            // Still not verified
+                            _authState.value = _authState.value.copy(
+                                isLoading = false,
+                                emailError = "Please verify your email address to continue.",
+                                showResendVerification = true
+                            )
+                            Log.d("AuthViewModel", "Login blocked: Email not verified")
+                            return@launch
+                        }
+                    } catch (e: Exception) {
+                        _authState.value = _authState.value.copy(
+                            isLoading = false,
+                            passwordError = "Incorrect password or network error"
+                        )
+                        Log.e("AuthViewModel", "Firebase auth check failed", e)
+                        return@launch
+                    }
+                }
+
+                // Try local login (will succeed since we verified password above or they are already verified in DB)
                 userRepository.login(trimmedEmail, trimmedPassword).onSuccess { user ->
-                    // ✅ FIX: Always allow login - MainViewModel handles onboarding routing
-                    // Removed block that prevented login for incomplete onboarding (catch-22 bug)
                     sessionManager.setLoggedIn(user.email)
                     sessionManager.saveUserId(user.userId)
                     sessionManager.saveRole(user.role)
-                    
-                    // BUGFIX Issue 7: Save last login email for persistence after logout
                     sessionManager.saveLastLoginEmail(user.email)
                     
-                    // PHASE 1: Save initial dashboard mode based on role
-                    val initialMode = if (user.role == "admin") "admin" else "user"
-                    sessionManager.saveLastDashboardMode(initialMode)
-                    Log.d("AuthViewModel", "🔒 Saved initial lastDashboardMode=$initialMode (role=${user.role})")
+                    val existingMode = sessionManager.getLastDashboardMode()
+                    val modeWasSaved = existingMode != "user" || user.role == "user"
+                    if (!modeWasSaved) {
+                        val initialMode = if (user.role == "admin") "admin" else "user"
+                        sessionManager.saveLastDashboardMode(initialMode)
+                    }
                     
-                    // ✅ CRITICAL: Check onboarding to determine destination
-                    val userStats = legacyRepository.getUserStats(user.userId)
+                    val userStats = userRepository.getUserStats(user.userId)
                     val onboardingCompleted = userStats?.onboardingCompleted ?: false
-                    
+
                     _authState.value = _authState.value.copy(
                         isLoading = false,
                         isLoginSuccess = true,
                         navigateToDashboard = onboardingCompleted,
-                        navigateToOnboarding = !onboardingCompleted
+                        navigateToOnboarding = !onboardingCompleted,
+                        showResendVerification = false
                     )
-                    Log.d("AuthViewModel", "✅ Login successful for user: ${user.nickname} (userId=${user.userId}, onboarding=$onboardingCompleted)")
+                    Log.d("AuthViewModel", "Login successful out of Room")
+                    
+                    // Sprint 4 Phase 2: Broker Sync to Firestore upon login natively
+                    syncScheduler.schedulePeriodicSync()
+                    syncScheduler.triggerImmediateSync()
                 }.onFailure { error ->
-                    // Login failed - likely wrong password
                     _authState.value = _authState.value.copy(
                         isLoading = false,
                         passwordError = "Incorrect password"
                     )
-                    Log.e("AuthViewModel", "Login error: Wrong password", error)
                 }
             }.onFailure { error ->
                 // Database error during email check
@@ -178,8 +261,8 @@ class AuthViewModel @Inject constructor(
         val password = _authState.value.password
         val confirmPassword = _authState.value.confirmPassword
         
-        // Validate fields (name was removed from signup)
-        val emailError = ValidationUtils.validateEmail(email)
+        // Validate fields (Inherit async API errors if present, fallback to regex)
+        val emailError = _authState.value.emailError ?: ValidationUtils.validateEmail(email)
         val passwordError = ValidationUtils.validatePassword(password)
         val confirmPasswordError = ValidationUtils.validateConfirmPassword(password, confirmPassword)
         
@@ -194,105 +277,271 @@ class AuthViewModel @Inject constructor(
         
         _authState.value = _authState.value.copy(isLoading = true)
         
+        // Sprint 4 Phase 3: Offline Block
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            _authState.value = _authState.value.copy(isLoading = false)
+            viewModelScope.launch { _uiEvent.emit(UiEvent.ShowError("No network connection")) }
+            return
+        }
+        
         viewModelScope.launch {
             try {
-                // Check for duplicate email - properly unwrap Result
-                val emailCheckResult = userRepository.getUserByEmail(email)
-                
-                var shouldProceed = false
-                var emailExists = false
-                
-                emailCheckResult.onSuccess { existingUser ->
-                    if (existingUser != null) {
-                        emailExists = true
-                    } else {
-                        shouldProceed = true
-                    }
-                }.onFailure { error ->
+                // Check if email already exists locally
+                val alreadyExistsLocal = userRepository.getUserByEmail(email).getOrNull() != null
+                if (alreadyExistsLocal) {
                     _authState.value = _authState.value.copy(
                         isLoading = false,
-                        emailError = "Database error: ${error.message}"
+                        emailError = "This email is already registered locally"
                     )
-                    Log.e("AuthViewModel", "Email check error", error)
-                }
-                
-                if (emailExists) {
-                    _authState.value = _authState.value.copy(
-                        isLoading = false,
-                        emailError = "This email is already registered"
-                    )
-                    Log.d("AuthViewModel", "Email already exists: $email")
                     return@launch
                 }
-                
-                if (!shouldProceed) return@launch
-                
-                // Create new user (name collection moved to onboarding)
-                val newUser = UserEntity(
-                    email = email,
-                    password = password.trim(),  // Trim to match login trimming
-                    nickname = "",  // Will be set in onboarding
-                    role = "USER",
-                    isActive = true,
-                    gender = "Male", // Default, will be updated in onboarding
-                    height = 170, // Default
-                    weight = 70.0, // Default
-                    age = 25, // Default
-                    activityLevel = "Moderate", // Default
-                    targetWeight = 65.0, // Default
-                    goalType = "MAINTAIN", // Default
-                    bmr = 1500, // Will be calculated in onboarding
-                    tdee = 2000 // Will be calculated in onboarding
-                )
-                
-                val result = userRepository.registerUser(newUser)
-                
-                result.onSuccess { userId ->
-                    // ✅ CRITICAL FIX: Don't create default user_stats here!
-                    // user_stats will ONLY be created when onboarding completes
-                    // This prevents wrong gender (MALE) showing instead of user's selection
-                    
-                    // Save session
-                    sessionManager.setLoggedIn(email)
-                    sessionManager.saveUserId(userId.toInt())
-                    sessionManager.saveRole("USER")
-                    
+
+                // Create user in Firebase Auth
+                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                val result = auth.createUserWithEmailAndPassword(email, password).await()
+                val firebaseUser = result.user
+
+                if (firebaseUser != null) {
+                    // Send verification email
+                    firebaseUser.sendEmailVerification().await()
+                    Log.d("AuthViewModel", "Verification email sent to $email")
+
+                    // Create offline user in Room with isEmailVerified = false
+                    val newUser = UserEntity(
+                        email = email,
+                        password = password.trim(),
+                        nickname = "",
+                        role = "USER",
+                        isActive = true,
+                        isEmailVerified = false,
+                        gender = "Male",
+                        height = 170, 
+                        weight = 70.0,
+                        age = 25,
+                        activityLevel = "Moderate",
+                        targetWeight = 65.0,
+                        goalType = "MAINTAIN",
+                        bmr = 1500,
+                        tdee = 2000
+                    )
+                    userRepository.registerUser(newUser).getOrThrow()
+
                     _authState.value = _authState.value.copy(
                         isLoading = false,
                         isSignUpSuccess = true
                     )
-                    Log.d("AuthViewModel", "Sign up successful, userId: $userId")
-                }.onFailure { error ->
-                    _authState.value = _authState.value.copy(
-                        isLoading = false,
-                        emailError = error.message ?: "Sign up failed"
-                    )
-                    Log.e("AuthViewModel", "Sign up error", error)
+                    Log.d("AuthViewModel", "Sign up successful, verification required")
+                    
+                    // Sprint 4 Phase 2: Broker Sync to Firestore upon sign-up natively
+                    syncScheduler.schedulePeriodicSync()
+                    syncScheduler.triggerImmediateSync()
                 }
             } catch (e: Exception) {
                 _authState.value = _authState.value.copy(
                     isLoading = false,
-                    emailError = "Sign up failed"
+                    emailError = e.message ?: "Firebase sign up failed"
                 )
                 Log.e("AuthViewModel", "Sign up error", e)
             }
         }
     }
     
-    fun googleSignIn() {
-        Log.d("AuthViewModel", "Google Sign In clicked")
+    /**
+     * Google Sign-In — receives the idToken from the Credential Manager launcher in the screen.
+     *
+     * Flow:
+     *  1. Verify token with Firebase Auth
+     *  2. Extract uid (googleId), email, displayName from Firebase result
+     *  3. Check Room for existing row with matching googleId → log in directly
+     *  4. Else check Room for matching email → link googleId to existing account
+     *  5. Else create a brand-new Room user (role=USER, password=googleId as placeholder)
+     *  6. Set navigateToDashboard or navigateToOnboarding based on onboarding completion
+     */
+    fun googleSignIn(idToken: String) {
+        _authState.value = _authState.value.copy(isLoading = true, googleSignInError = null)
+        
+        // Sprint 4 Phase 3: Offline Block
+        if (!NetworkUtils.isNetworkAvailable(context)) {
+            _authState.value = _authState.value.copy(isLoading = false, googleSignInError = "No network connection. Online features are restricted.")
+            viewModelScope.launch { _uiEvent.emit(com.sample.calorease.presentation.ui.UiEvent.ShowError("No network connection")) }
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                // ── Step 1: Verify with Firebase ──────────────────────────────
+                val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
+                val firebaseResult = com.google.firebase.auth.FirebaseAuth.getInstance()
+                    .signInWithCredential(credential).await()
+
+                val firebaseUser = firebaseResult.user
+                    ?: throw Exception("Google Sign-In failed: no Firebase user returned")
+
+                val googleId  = firebaseUser.uid
+                val email     = firebaseUser.email ?: throw Exception("Google account has no email")
+                val firstName = firebaseUser.displayName?.substringBefore(" ") ?: ""
+                val lastName  = firebaseUser.displayName?.substringAfter(" ", "") ?: ""
+
+                Log.d("AuthViewModel", "Google Sign-In Firebase OK: uid=$googleId, email=$email")
+
+                // ── Step 2: Lookup by googleId ─────────────────────────────────
+                val byGoogleId = userRepository.getUserByGoogleId(googleId).getOrNull()
+                val user: com.sample.calorease.data.local.entity.UserEntity
+
+                if (byGoogleId != null) {
+                    // Already linked — just log in
+                    user = byGoogleId
+                    Log.d("AuthViewModel", "Google user already linked, logging in userId=${user.userId}")
+
+                } else {
+                    // ── Step 3: Lookup by email ────────────────────────────────
+                    val byEmail = userRepository.getUserByEmail(email).getOrNull()
+
+                    if (byEmail != null) {
+                        // Existing manual account — link google id
+                        userRepository.linkGoogleId(byEmail.userId, googleId)
+                        user = byEmail
+                        Log.d("AuthViewModel", "Linked Google to existing account userId=${user.userId}")
+                    } else {
+                        // ── Step 4: Create new local user ──────────────────────
+                        val newUser = com.sample.calorease.data.local.entity.UserEntity(
+                            email        = email,
+                            password     = googleId,      // placeholder — user never enters a password
+                            nickname     = firstName,
+                            role         = "USER",
+                            isActive     = true,
+                            googleId     = googleId,
+                            gender       = "Male",
+                            height       = 170,
+                            weight       = 70.0,
+                            age          = 25,
+                            activityLevel= "Moderate",
+                            targetWeight = 65.0,
+                            goalType     = "MAINTAIN",
+                            bmr          = 1500,
+                            tdee         = 2000
+                        )
+                        val newId = userRepository.registerUser(newUser)
+                            .getOrThrow()
+                        user = userRepository.getUserById(newId.toInt()).getOrThrow()
+                            ?: throw Exception("Could not load newly created user")
+                        Log.d("AuthViewModel", "Created new Google user userId=${user.userId}")
+                    }
+                }
+
+                // ── Step 5: Save session ────────────────────────────────────────
+                sessionManager.setLoggedIn(user.email)
+                sessionManager.saveUserId(user.userId)
+                sessionManager.saveRole(user.role)
+                sessionManager.saveLastLoginEmail(user.email)
+
+                // ── Step 6: Decide navigation ───────────────────────────────────
+                val userStats         = userRepository.getUserStats(user.userId)
+                val onboardingDone    = userStats?.onboardingCompleted ?: false
+
+                _authState.value = _authState.value.copy(
+                    isLoading       = false,
+                    isLoginSuccess  = true,
+                    navigateToDashboard  = onboardingDone,
+                    navigateToOnboarding = !onboardingDone
+                )
+                Log.d("AuthViewModel", "Google login done: onboarding=$onboardingDone")
+
+                // Sprint 4 Phase 2: Broker Sync to Firestore securely via Google identity
+                syncScheduler.schedulePeriodicSync()
+                syncScheduler.triggerImmediateSync()
+
+            } catch (e: androidx.credentials.exceptions.NoCredentialException) {
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    googleSignInError = "No Google accounts found on this device. Add a Google account in Settings and try again."
+                )
+            } catch (e: Exception) {
+                val msg = when {
+                    e.message?.contains("network", ignoreCase = true) == true ->
+                        "Google Sign-In unavailable. Check your connection."
+                    e.message?.contains("cancel", ignoreCase = true) == true -> null  // user cancelled — silent
+                    else -> "Google Sign-In failed. Please try again."
+                }
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    googleSignInError = msg
+                )
+                Log.e("AuthViewModel", "Google Sign-In error", e)
+            }
+        }
+    }
+
+    fun clearGoogleSignInError() {
+        _authState.value = _authState.value.copy(googleSignInError = null)
+    }
+    
+    fun resendVerificationEmail() {
+        val email = _authState.value.email
+        val password = _authState.value.password // We need this to auth with Firebase to resend
+        
+        if (email.isBlank() || password.isBlank()) return
+        
+        _authState.value = _authState.value.copy(isLoading = true)
+        
+        viewModelScope.launch {
+            try {
+                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                // Must sign in to resend the verification email to prevent spam/abuse
+                val result = auth.signInWithEmailAndPassword(email, password).await()
+                result.user?.sendEmailVerification()?.await()
+                
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    emailError = "Verification email sent. Please check your inbox.",
+                    showResendVerification = false // Hide button after sending
+                )
+            } catch (e: Exception) {
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    emailError = "Failed to resend verification: ${e.message}"
+                )
+            }
+        }
     }
     
     fun resetSuccessFlags() {
         _authState.value = _authState.value.copy(
             isLoginSuccess = false,
             isSignUpSuccess = false,
-            navigateToDashboard = false,  // ✅ Clear nav flags
+            navigateToDashboard = false,  // Clear nav flags
             navigateToOnboarding = false
         )
     }
     
     fun resetPassword(email: String) {
-        Log.d("AuthViewModel", "Reset password for: $email")
+        val trimmedEmail = email.trim()
+        val emailError = ValidationUtils.validateEmail(trimmedEmail)
+        
+        if (emailError != null) {
+            _authState.value = _authState.value.copy(emailError = emailError)
+            return
+        }
+
+        Log.d("AuthViewModel", "Reset password for: $trimmedEmail")
+        _authState.value = _authState.value.copy(isLoading = true)
+
+        viewModelScope.launch {
+            try {
+                com.google.firebase.auth.FirebaseAuth.getInstance().sendPasswordResetEmail(trimmedEmail).await()
+                // Always show success for security purposes
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    isLoginSuccess = true // We overload this flag to trigger the success dialog
+                )
+            } catch (e: Exception) {
+                // Still show success to prevent email sweeping, but log the real error
+                Log.e("AuthViewModel", "Failed to send reset email", e)
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    isLoginSuccess = true
+                )
+            }
+        }
     }
 }

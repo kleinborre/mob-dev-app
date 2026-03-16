@@ -27,6 +27,8 @@ import com.sample.calorease.presentation.components.CalorEaseButton
 import com.sample.calorease.presentation.components.AdminBottomNavigationBar
 import com.sample.calorease.presentation.components.CalorEaseCard
 import com.sample.calorease.presentation.navigation.Screen
+import com.sample.calorease.presentation.theme.AestheticWhite
+import com.sample.calorease.presentation.theme.DeepTeal
 import com.sample.calorease.presentation.theme.DarkTurquoise
 import com.sample.calorease.presentation.theme.Poppins
 import com.sample.calorease.presentation.viewmodel.AdminUsersViewModel
@@ -139,7 +141,7 @@ fun AdminUsersScreen(
     if (state.showEditDialog) {
         EditUserDialog(
             state = state,
-            viewModel = viewModel, // ✅ Phase C: Pass viewModel for admin access toggle
+            viewModel = viewModel, // Pass viewModel for admin access toggle
             onDismiss = viewModel::hideEditDialog,
             onConfirm = viewModel::saveUserEdits,
             onFieldChange = viewModel::updateEditField
@@ -155,7 +157,7 @@ fun AdminUsersScreen(
             onDismissRequest = viewModel::hideStatusConfirmDialog,
             title = {
                 Text(
-                    text = "⚠️ Change Account Status",
+                    text = "Change Account Status",
                     fontFamily = Poppins,
                     fontWeight = FontWeight.Bold
                 )
@@ -190,7 +192,7 @@ fun AdminUsersScreen(
         )
     }
     
-    // ✅ Phase C: Admin Access Confirm Dialog
+    // Admin Access Confirm Dialog
     if (state.showAdminAccessConfirmDialog && state.selectedUser != null) {
         val user = state.selectedUser!!
         val willGrant = state.editAdminAccess && !user.userEntity.adminAccess
@@ -200,7 +202,7 @@ fun AdminUsersScreen(
             onDismissRequest = viewModel::hideAdminAccessConfirmDialog,
             title = {
                 Text(
-                    text = if (willGrant) "👑 Grant Admin Access" else "⚠️ Revoke Admin Access",
+                    text = if (willGrant) "Grant Admin Access" else "Revoke Admin Access",
                     fontFamily = Poppins,
                     fontWeight = FontWeight.Bold
                 )
@@ -253,8 +255,8 @@ fun UserTableRow(
     CalorEaseCard {
         Row(
             modifier = Modifier
-
-.fillMaxWidth(),
+                .fillMaxWidth()
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -347,7 +349,7 @@ fun UserTableRow(
 @Composable
 fun EditUserDialog(
     state: com.sample.calorease.presentation.viewmodel.AdminUsersState,
-    viewModel: AdminUsersViewModel, // ✅ Phase C: Need viewModel for admin access toggle
+    viewModel: AdminUsersViewModel, // Need viewModel for admin access toggle
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
     onFieldChange: (String, String) -> Unit
@@ -356,7 +358,7 @@ fun EditUserDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "✏️ Edit User",
+                text = "Edit User",
                 fontFamily = Poppins,
                 fontWeight = FontWeight.Bold
             )
@@ -416,7 +418,7 @@ fun EditUserDialog(
                     singleLine = true
                 )
                 
-                // ✅ Phase C: Admin Access Toggle (Super Admin Only)
+                // Admin Access Toggle (Super Admin Only)
                 if (state.isSuperAdmin && state.selectedUser?.userEntity?.isSuperAdmin == false) {
                     Spacer(modifier = Modifier.height(4.dp))
                     
@@ -431,7 +433,7 @@ fun EditUserDialog(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "👑 Admin Access",
+                                text = "Admin Access",
                                 fontFamily = Poppins,
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.titleSmall
@@ -464,7 +466,7 @@ fun EditUserDialog(
         confirmButton = {
             Button(
                 onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = DarkTurquoise)
+                colors = ButtonDefaults.buttonColors(containerColor = DeepTeal)
             ) {
                 Text("Save", fontFamily = Poppins)
             }

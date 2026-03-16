@@ -27,10 +27,10 @@ data class AdminUsersState(
     val selectedUser: UserWithStats? = null,
     val showEditDialog: Boolean = false,
     val showStatusConfirmDialog: Boolean = false,
-    val showAdminAccessConfirmDialog: Boolean = false, // ✅ Phase C: Confirm admin access toggle
+    val showAdminAccessConfirmDialog: Boolean = false, // Phase C: Confirm admin access toggle
     // Current user info
-    val currentUserId: Int = 0,         // ✅ Phase C: ID of logged-in admin
-    val isSuperAdmin: Boolean = false,  // ✅ Phase C: Is current user super admin?
+    val currentUserId: Int = 0,         // Phase C: ID of logged-in admin
+    val isSuperAdmin: Boolean = false,  // Phase C: Is current user super admin?
     // Edit fields
     val editFirstName: String = "",
     val editLastName: String = "",
@@ -38,7 +38,7 @@ data class AdminUsersState(
     val editAge: String = "",
     val editHeight: String = "",
     val editWeight: String = "",
-    val editAdminAccess: Boolean = false // ✅ Phase C: Admin access toggle
+    val editAdminAccess: Boolean = false // Phase C: Admin access toggle
 )
 
 /**
@@ -77,25 +77,25 @@ data class UserWithStats(
 class AdminUsersViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val legacyRepository: LegacyCalorieRepository,
-    private val sessionManager: com.sample.calorease.data.session.SessionManager // ✅ Phase C: For current user
+    private val sessionManager: com.sample.calorease.data.session.SessionManager // Phase C: For current user
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(AdminUsersState())
     val state: StateFlow<AdminUsersState> = _state.asStateFlow()
     
     init {
-        loadCurrentUser() // ✅ Phase C: Load logged-in admin info
+        loadCurrentUser() // Phase C: Load logged-in admin info
         loadAllUsers()
     }
     
     /**
-     * ✅ Phase C: Load current logged-in admin's info
+     * Phase C: Load current logged-in admin's info
      */
     private fun loadCurrentUser() {
         viewModelScope.launch {
             try {
                 val userId = sessionManager.getUserId() ?: run {
-                    android.util.Log.e("AdminUsersViewModel", "❌ No user ID in session")
+                    android.util.Log.e("AdminUsersViewModel", "No user ID in session")
                     return@launch
                 }
                 
@@ -104,9 +104,9 @@ class AdminUsersViewModel @Inject constructor(
                     currentUserId = currentUser?.userId ?: 0,
                     isSuperAdmin = currentUser?.isSuperAdmin ?: false
                 )
-                android.util.Log.d("AdminUsersViewModel", "✅ Current user ID: ${currentUser?.userId}, isSuperAdmin: ${currentUser?.isSuperAdmin}")
+                android.util.Log.d("AdminUsersViewModel", "Current user ID: ${currentUser?.userId}, isSuperAdmin: ${currentUser?.isSuperAdmin}")
             } catch (e: Exception) {
-                android.util.Log.e("AdminUsersViewModel", "❌ Failed to load current user", e)
+                android.util.Log.e("AdminUsersViewModel", "Failed to load current user", e)
             }
         }
     }
@@ -131,9 +131,9 @@ class AdminUsersViewModel @Inject constructor(
                     isLoading = false
                 )
                 
-                android.util.Log.d("AdminUsersViewModel", "✅ Loaded ${usersWithStats.size} users")
+                android.util.Log.d("AdminUsersViewModel", "Loaded ${usersWithStats.size} users")
             } catch (e: Exception) {
-                android.util.Log.e("AdminUsersViewModel", "❌ Failed to load users", e)
+                android.util.Log.e("AdminUsersViewModel", "Failed to load users", e)
                 _state.value = _state.value.copy(isLoading = false)
             }
         }
@@ -168,7 +168,7 @@ class AdminUsersViewModel @Inject constructor(
             editAge = user.age.toString(),
             editHeight = user.height.toString(),
             editWeight = user.weight.toString(),
-            editAdminAccess = user.userEntity.adminAccess // ✅ Phase C: Load admin access status
+            editAdminAccess = user.userEntity.adminAccess // Phase C: Load admin access status
         )
     }
     
@@ -209,13 +209,13 @@ class AdminUsersViewModel @Inject constructor(
                 
                 legacyRepository.updateUserStats(updatedStats)
                 
-                android.util.Log.d("AdminUsersViewModel", "✅ Updated user ${selectedUser.userEntity.userId}")
+                android.util.Log.d("AdminUsersViewModel", "Updated user ${selectedUser.userEntity.userId}")
                 
                 // Reload users and close dialog
                 hideEditDialog()
                 loadAllUsers()
             } catch (e: Exception) {
-                android.util.Log.e("AdminUsersViewModel", "❌ Failed to update user", e)
+                android.util.Log.e("AdminUsersViewModel", "Failed to update user", e)
             }
         }
     }
@@ -245,13 +245,13 @@ class AdminUsersViewModel @Inject constructor(
                 val updatedUser = selectedUser.userEntity.copy(accountStatus = newStatus)
                 userRepository.updateUser(updatedUser)
                 
-                android.util.Log.d("AdminUsersViewModel", "✅ Toggled user ${selectedUser.userEntity.userId} status to $newStatus")
+                android.util.Log.d("AdminUsersViewModel", "Toggled user ${selectedUser.userEntity.userId} status to $newStatus")
                 
                 // Reload users and close dialog
                 hideStatusConfirmDialog()
                 loadAllUsers()
             } catch (e: Exception) {
-                android.util.Log.e("AdminUsersViewModel", "❌ Failed to toggle user status", e)
+                android.util.Log.e("AdminUsersViewModel", "Failed to toggle user status", e)
             }
         }
     }
@@ -261,7 +261,7 @@ class AdminUsersViewModel @Inject constructor(
         loadAllUsers()
     }
     
-    // ✅ Phase C: Admin Access Management
+    // Phase C: Admin Access Management
     
     /**
      * Toggle admin access field in edit dialog
@@ -295,23 +295,23 @@ class AdminUsersViewModel @Inject constructor(
             val newAdminAccess = _state.value.editAdminAccess
             
             try {
-                // ✅ Validation 1: Only super admin can toggle admin access
+                // Validation 1: Only super admin can toggle admin access
                 if (!isSuperAdmin) {
-                    android.util.Log.w("AdminUsersViewModel", "⚠️ Only super admin can toggle admin access")
+                    android.util.Log.w("AdminUsersViewModel", " Only super admin can toggle admin access")
                     hideAdminAccessConfirmDialog()
                     return@launch
                 }
                 
-                // ✅ Validation 2: Cannot remove own admin access
+                // Validation 2: Cannot remove own admin access
                 if (selectedUser.userEntity.userId == currentUserId && !newAdminAccess) {
-                    android.util.Log.w("AdminUsersViewModel", "⚠️ Cannot remove your own admin access")
+                    android.util.Log.w("AdminUsersViewModel", " Cannot remove your own admin access")
                     hideAdminAccessConfirmDialog()
                     return@launch
                 }
                 
-                // ✅ Validation 3: Cannot modify super admin's admin access
+                // Validation 3: Cannot modify super admin's admin access
                 if (selectedUser.userEntity.isSuperAdmin) {
-                    android.util.Log.w("AdminUsersViewModel", "⚠️ Cannot modify super admin's access")
+                    android.util.Log.w("AdminUsersViewModel", " Cannot modify super admin's access")
                     hideAdminAccessConfirmDialog()
                     return@launch
                 }
@@ -320,13 +320,13 @@ class AdminUsersViewModel @Inject constructor(
                 val updatedUser = selectedUser.userEntity.copy(adminAccess = newAdminAccess)
                 userRepository.updateUser(updatedUser)
                 
-                android.util.Log.d("AdminUsersViewModel", "✅ Toggled admin access for user ${selectedUser.userEntity.userId} to $newAdminAccess")
+                android.util.Log.d("AdminUsersViewModel", "Toggled admin access for user ${selectedUser.userEntity.userId} to $newAdminAccess")
                 
                 // Close dialog and reload
                 hideAdminAccessConfirmDialog()
                 loadAllUsers()
             } catch (e: Exception) {
-                android.util.Log.e("AdminUsersViewModel", "❌ Failed to toggle admin access", e)
+                android.util.Log.e("AdminUsersViewModel", "Failed to toggle admin access", e)
                 hideAdminAccessConfirmDialog()
             }
         }

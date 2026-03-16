@@ -13,19 +13,58 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import com.sample.calorease.presentation.components.AuthScaffold
 import com.sample.calorease.presentation.components.CalorEaseButton
 import com.sample.calorease.presentation.components.CalorEaseTextField
+import com.sample.calorease.presentation.components.rememberStatusDialog
+import com.sample.calorease.presentation.components.Render
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.sample.calorease.presentation.viewmodel.AuthViewModel
 import com.sample.calorease.presentation.theme.DarkTurquoise
 import com.sample.calorease.presentation.theme.Poppins
+import com.sample.calorease.presentation.util.NetworkUtils
+import com.sample.calorease.presentation.util.SoundPlayer
 import com.sample.calorease.util.ValidationUtils
 
 @Composable
-fun ForgotPasswordScreen(navController: NavController) {
+fun ForgotPasswordScreen(
+    navController: NavController,
+    viewModel: AuthViewModel = hiltViewModel()
+) {
+    val authState by viewModel.authState.collectAsState()
     var email by remember { mutableStateOf("") }
-    var emailError by remember { mutableStateOf<String?>(null) }
-    var showSuccessDialog by remember { mutableStateOf(false) }
+    var userTriggeredRequest by remember { mutableStateOf(false) }
+    
+    val context = LocalContext.current
+    val statusDialog = rememberStatusDialog()
+    val soundPlayer = remember { SoundPlayer(context) }
+    
+    // Listen to ViewModel authState for loading/success
+    LaunchedEffect(authState.isLoading, authState.isLoginSuccess) {
+        if (userTriggeredRequest) {
+            if (authState.isLoading) {
+                statusDialog.showLoading("Waiting for network...")
+            } else if (authState.isLoginSuccess) {
+                soundPlayer.playSuccess()
+                statusDialog.showSuccess("Verification code has been sent to your email.")
+                kotlinx.coroutines.delay(1800L)
+                statusDialog.dismiss()
+                viewModel.resetSuccessFlags()
+                userTriggeredRequest = false
+                navController.popBackStack()
+            } else if (authState.emailError != null) {
+                soundPlayer.playError()
+                statusDialog.showError(authState.emailError ?: "Failed to send reset email")
+                kotlinx.coroutines.delay(1800L)
+                statusDialog.dismiss()
+                userTriggeredRequest = false
+            }
+        }
+    }
+    
+    statusDialog.Render()
     
     AuthScaffold(
         onBackClick = { navController.popBackStack() }
@@ -74,14 +113,14 @@ fun ForgotPasswordScreen(navController: NavController) {
             value = email,
             onValueChange = {
                 email = it
-                emailError = null
+                if (authState.emailError != null) viewModel.updateEmail(it) // Re-trigger update to clear error
             },
             label = "Email",
             placeholder = "Enter your email",
             leadingIcon = Icons.Default.Email,
             keyboardType = KeyboardType.Email,
-            isError = emailError != null,
-            errorMessage = emailError ?: ""
+            isError = authState.emailError != null,
+            errorMessage = authState.emailError ?: ""
         )
         
         Spacer(modifier = Modifier.height(32.dp))
@@ -90,14 +129,25 @@ fun ForgotPasswordScreen(navController: NavController) {
         CalorEaseButton(
             text = "Reset Password",
             onClick = {
-                if (email.isBlank()) {
-                    emailError = "Email cannot be empty"
-                } else if (ValidationUtils.isValidEmail(email)) {
-                    showSuccessDialog = true
-                } else {
-                    emailError = "Invalid email address"
+                if (!NetworkUtils.isNetworkAvailable(context)) {
+                    statusDialog.showError("Network unavailable. Please connect to the internet to reset password.")
+                    return@CalorEaseButton
                 }
-            }
+                
+                // Block offline manual checks using UI Provider logic matching ViewModel
+                if (email.isBlank()) {
+                    viewModel.updateEmail("") // Trigger empty error
+                    viewModel.login("", "dummy") // Hacky way to trip ValidationUtils from UI
+                } else if (!ValidationUtils.isAcceptedEmailProvider(email)) {
+                    // Update email triggers the provider check block downstream
+                    viewModel.updateEmail(email)
+                    viewModel.resetPassword(email)
+                } else {
+                    userTriggeredRequest = true
+                    viewModel.resetPassword(email)
+                }
+            },
+            isLoading = authState.isLoading && userTriggeredRequest
         )
         
         Spacer(modifier = Modifier.height(16.dp))
@@ -111,39 +161,5 @@ fun ForgotPasswordScreen(navController: NavController) {
             )
         }
         }
-    }
-    
-    // Success Dialog
-    if (showSuccessDialog) {
-        AlertDialog(
-            onDismissRequest = { showSuccessDialog = false },
-            title = {
-                Text(
-                    text = "Email Sent",
-                    fontFamily = Poppins,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Text(
-                    text = "A password reset link has been sent to $email. Please check your inbox.",
-                    fontFamily = Poppins
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showSuccessDialog = false
-                        navController.popBackStack()
-                    }
-                ) {
-                    Text(
-                        text = "OK",
-                        fontFamily = Poppins,
-                        color = DarkTurquoise
-                    )
-                }
-            }
-        )
     }
 }

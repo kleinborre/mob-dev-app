@@ -44,12 +44,42 @@ interface CalorieDao {
      */
     @Query("SELECT * FROM users WHERE email = :email")
     suspend fun getUserByEmail(email: String): UserEntity?
-    
+
+    /**
+     * Get user by Google account UID (for Google Sign-In linking)
+     */
+    @Query("SELECT * FROM users WHERE googleId = :googleId LIMIT 1")
+    suspend fun getUserByGoogleId(googleId: String): UserEntity?
+
+    /**
+     * Link a Google account to an existing local user
+     */
+    @Query("UPDATE users SET googleId = :googleId WHERE userId = :userId")
+    suspend fun updateGoogleId(userId: Int, googleId: String)
+
     /**
      * Check if email exists
      */
     @Query("SELECT COUNT(*) FROM users WHERE email = :email")
     suspend fun emailExists(email: String): Int
+    
+    /**
+     * Phase 3: Set Email Verified flag
+     */
+    @Query("UPDATE users SET isEmailVerified = :isVerified WHERE userId = :userId")
+    suspend fun updateEmailVerified(userId: Int, isVerified: Boolean)
+
+    /**
+     * Phase 4: Update Email
+     */
+    @Query("UPDATE users SET email = :email WHERE userId = :userId")
+    suspend fun updateUserEmail(userId: Int, email: String)
+
+    /**
+     * Phase 4: Update Password
+     */
+    @Query("UPDATE users SET password = :password WHERE userId = :userId")
+    suspend fun updateUserPassword(userId: Int, password: String)
     
     // ==================== USER STATS OPERATIONS ====================
     
@@ -67,14 +97,14 @@ interface CalorieDao {
     
     /**
      * Update or insert user stats (upsert)
-     * ✅ CRITICAL: For onboarding state persistence
+     * CRITICAL: For onboarding state persistence
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateUserStats(userStats: UserStats)
     
     /**
      * Update onboarding progress
-     * ✅ Saves currentOnboardingStep after each step completion
+     * Saves currentOnboardingStep after each step completion
      */
     @Query("UPDATE user_stats SET currentOnboardingStep = :step WHERE userId = :userId")
     suspend fun updateOnboardingProgress(userId: Int, step: Int)
@@ -139,7 +169,7 @@ interface CalorieDao {
     
     /**
      * Get all entries for a user within a date range (for Statistics)
-     * ✅ CRITICAL: Used by StatisticsViewModel to load weekly chart data
+     * CRITICAL: Used by StatisticsViewModel to load weekly chart data
      */
     @Query("SELECT * FROM daily_entries WHERE userId = :userId AND date BETWEEN :startDate AND :endDate ORDER BY date ASC")
     suspend fun getDailyEntriesByDateRangeForUser(userId: Int, startDate: Long, endDate: Long): List<DailyEntryEntity>
@@ -152,7 +182,7 @@ interface CalorieDao {
     
     /**
      * Delete all daily entries for a specific user
-     * ✅ CRITICAL: Used when user changes goal (progress reset)
+     * CRITICAL: Used when user changes goal (progress reset)
      */
     @Query("DELETE FROM daily_entries WHERE userId = :userId")
     suspend fun deleteAllDailyEntriesForUser(userId: Int)
@@ -181,4 +211,34 @@ interface CalorieDao {
      */
     @Query("SELECT * FROM daily_entries WHERE userId = :userId ORDER BY date DESC, entryId DESC")
     suspend fun getAllFoodEntriesSortedByDate(userId: Int): List<DailyEntryEntity>
+
+    // ==================== FLOW / REAL-TIME OPERATIONS ====================
+
+    /**
+     * Observe daily entries for a user on a specific date.
+     * Emits a new list whenever the underlying table changes.
+     * Used by DashboardViewModel for live UI updates.
+     */
+    @Query("SELECT * FROM daily_entries WHERE userId = :userId AND date = :date ORDER BY entryId DESC")
+    fun getDailyEntriesFlow(userId: Int, date: Long): kotlinx.coroutines.flow.Flow<List<DailyEntryEntity>>
+
+    /**
+     * Observe total calories for a user on a specific date.
+     * Emits null when no entries exist (callers should coerce to 0).
+     */
+    @Query("SELECT SUM(calories) FROM daily_entries WHERE userId = :userId AND date = :date")
+    fun getTotalCaloriesFlow(userId: Int, date: Long): kotlinx.coroutines.flow.Flow<Int?>
+
+    /**
+     * Observe user stats in real-time.
+     * Emits whenever the user_stats row for this userId changes (e.g. goal/weight update).
+     */
+    @Query("SELECT * FROM user_stats WHERE userId = :userId")
+    fun getUserStatsFlow(userId: Int): kotlinx.coroutines.flow.Flow<com.sample.calorease.data.model.UserStats?>
+
+    /**
+     * Observe user entity in real-time.
+     */
+    @Query("SELECT * FROM users WHERE userId = :userId")
+    fun getUserByIdFlow(userId: Int): kotlinx.coroutines.flow.Flow<com.sample.calorease.data.local.entity.UserEntity?>
 }

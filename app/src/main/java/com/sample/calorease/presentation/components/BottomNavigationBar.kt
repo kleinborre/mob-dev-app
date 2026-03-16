@@ -59,11 +59,11 @@ fun BottomNavigationBar(navController: NavController) {
                         navController.navigate(item.route) {
                             // Pop up to the start destination to avoid building a large stack
                             popUpTo(Screen.Dashboard.route) {
-                                saveState = false  // ✅ Don't save state - ensures fresh composition
+                                saveState = false  // Don't save state - ensures fresh composition
                             }
                             // Avoid multiple copies of the same destination
                             launchSingleTop = true
-                            // ✅ Don't restore state - forces LaunchedEffect to trigger
+                            // Don't restore state - forces LaunchedEffect to trigger
                             restoreState = false
                         }
                     }

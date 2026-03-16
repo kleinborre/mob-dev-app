@@ -60,7 +60,7 @@ class AdminStatsViewModel @Inject constructor(
             isLoading = false
         )
         
-        android.util.Log.d("AdminStatsViewModel", "✅ Stats updated: Total=${allUsers.size}, Active=$activeCount, Deactivated=$deactivatedCount")
+        android.util.Log.d("AdminStatsViewModel", "Stats updated: Total=${allUsers.size}, Active=$activeCount, Deactivated=$deactivatedCount")
     }
     
     private fun groupUsersByDate(users: List<com.sample.calorease.data.local.entity.UserEntity>): List<Pair<String, Int>> {

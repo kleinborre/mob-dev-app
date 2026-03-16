@@ -5,6 +5,7 @@ plugins {
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
     id("androidx.room")
+    id("com.google.gms.google-services")       // Firebase — reads google-services.json
 }
 
 android {
@@ -58,10 +59,15 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation("androidx.compose.material:material-icons-extended")
-    
+
     // Navigation
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.hilt.navigation.compose)
+
+    // WorkManager (Sprint 4 Phase 2 Syncing)
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+    implementation("androidx.hilt:hilt-work:1.2.0")
+    ksp("androidx.hilt:hilt-compiler:1.2.0")
 
     // Hilt
     implementation(libs.hilt.android)
@@ -72,15 +78,30 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
-    // Gson
+    // Gson & Retrofit (Phase 4: Email Validation API)
     implementation(libs.google.gson)
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
 
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
-    
+
     // Vico Charts
     implementation("com.patrykandpatrick.vico:compose:1.13.1")
     implementation("com.patrykandpatrick.vico:compose-m3:1.13.1")
+
+    // ── Firebase ──────────────────────────────────────────────────────────────
+    // BoM manages all Firebase library versions — update one line to upgrade all
+    implementation(platform("com.google.firebase:firebase-bom:33.9.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")          // Firebase Auth
+    implementation("com.google.firebase:firebase-firestore-ktx")     // Phase 1: Firestore    
+
+    // ── Google Sign-In via Credential Manager ─────────────────────────────────
+    // Credential Manager — the modern, single-tap sign-in API (replaces legacy GoogleSignInClient)
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    // Google Identity library — provides GetGoogleIdOption + GoogleIdTokenCredential
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

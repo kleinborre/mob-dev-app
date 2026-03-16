@@ -1,5 +1,6 @@
 package com.sample.calorease.presentation.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -9,7 +10,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color  // PHASE 3: For red delete buttons
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -20,10 +22,21 @@ import com.sample.calorease.presentation.components.BottomNavigationBar
 import com.sample.calorease.presentation.components.CalorEaseButton
 import com.sample.calorease.presentation.components.CalorEaseCard
 import com.sample.calorease.presentation.components.CalorEaseTextField
+import com.sample.calorease.presentation.components.Render
+import com.sample.calorease.presentation.components.rememberStatusDialog
 import com.sample.calorease.presentation.navigation.Screen
+import com.sample.calorease.presentation.theme.AestheticWhite
+import com.sample.calorease.presentation.theme.DeepTeal
 import com.sample.calorease.presentation.theme.DarkTurquoise
+import com.sample.calorease.presentation.theme.OffWhite
+import com.sample.calorease.presentation.theme.PaperWhite
 import com.sample.calorease.presentation.theme.Poppins
+import com.sample.calorease.presentation.theme.SubtleGray
 import com.sample.calorease.presentation.viewmodel.SettingsViewModel
+
+private val settingsGradient = Brush.verticalGradient(
+    colors = listOf(AestheticWhite, PaperWhite, OffWhite, SubtleGray)
+)
 
 @Composable
 fun SettingsScreen(
@@ -31,8 +44,29 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.settingsState.collectAsState()
-    var showSwitchToAdminConfirm by remember { mutableStateOf(false) }  // PHASE 5: Switch confirmation
-    
+    var showSwitchToAdminConfirm by remember { mutableStateOf(false) }
+    val dialog = rememberStatusDialog()
+
+    // Weight saving loading + success
+    LaunchedEffect(state.isWeightSaving) {
+        if (state.isWeightSaving) dialog.showLoading("Updating weight...")
+    }
+    LaunchedEffect(state.isGoalSaving) {
+        if (state.isGoalSaving) dialog.showLoading("Updating goal...")
+    }
+    LaunchedEffect(state.isLoggingOut) {
+        if (state.isLoggingOut) dialog.showLoading("Signing out...")
+    }
+    LaunchedEffect(state.isDeletingAccount) {
+        if (state.isDeletingAccount) dialog.showLoading("Deleting account...")
+    }
+    LaunchedEffect(state.successMessage) {
+        state.successMessage?.let {
+            dialog.showSuccess(it)
+            viewModel.clearSuccessMessage()
+        }
+    }
+
     // Navigate to getting started on account deletion
     LaunchedEffect(state.shouldNavigateToStart) {
         if (state.shouldNavigateToStart) {
@@ -42,19 +76,16 @@ fun SettingsScreen(
             viewModel.resetNavigationFlag()
         }
     }
-    
+
+    // Render dialog above scaffold
+    dialog.Render()
+
     Scaffold(
-        bottomBar = { BottomNavigationBar(navController = navController) }
+        bottomBar      = { BottomNavigationBar(navController = navController) },
+        containerColor = Color.Transparent
     ) { paddingValues ->
-        if (state.isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = DarkTurquoise)
-            }
-        } else {
-            Column(
+
+        Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
@@ -75,12 +106,17 @@ fun SettingsScreen(
                 
                 // Comprehensive User Stats Card with BMI
                 CalorEaseCard {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
                     Text(
                         text = "Your Profile",
                         style = MaterialTheme.typography.titleMedium,
                         fontFamily = Poppins,
                         fontWeight = FontWeight.Bold,
-                        color = DarkTurquoise
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     
                     Spacer(modifier = Modifier.height(16.dp))
@@ -191,14 +227,19 @@ fun SettingsScreen(
                         "Daily Calorie Target",
                         "${state.userStats?.goalCalories?.toInt() ?: 0} cal"
                     )
+                    } // end Column
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // ✅ Phase 4: Admin Mode Button (only for admin users)
+                // Phase 4: Admin Mode Button (only for admin users)
                 if (state.adminAccess) {
                     CalorEaseCard {
-                        Column(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
                             Text(
                                 text = "Admin Access",
                                 style = MaterialTheme.typography.titleMedium,
@@ -220,7 +261,6 @@ fun SettingsScreen(
                             CalorEaseButton(
                                 text = "Switch to Admin Mode",
                                 onClick = { showSwitchToAdminConfirm = true },
-                                backgroundColor = MaterialTheme.colorScheme.onSurface  // Switched to black
                             )
                         }
                     }
@@ -228,10 +268,12 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
                 
-                // ✅ Phase G: Account Actions Card (Edit Weight, Change Goal, Sign Out)
+                // Phase G: Account Actions Card (Edit Weight, Change Goal, Sign Out)
                 CalorEaseCard {
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
@@ -252,24 +294,31 @@ fun SettingsScreen(
                             onClick = viewModel::showChangeGoalDialog
                         )
                         
+                        // Phase 4: Sprint 3.1
+                        CalorEaseButton(
+                            text = "Update Credentials",
+                            onClick = { navController.navigate(Screen.UpdateCredentials.route) }
+                        )
+                        
                         CalorEaseButton(
                             text = "Sign Out",
                             onClick = viewModel::showLogoutConfirmDialog,
-                            backgroundColor = DarkTurquoise  // Switched to turquoise
                         )
                     }
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // ✅ Phase G: Danger Zone Card (separate)
+                // Phase G: Danger Zone Card (separate)
                 CalorEaseCard {
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "Danger Zone",  // PHASE 5: Removed ⚠️ icon
+                            text = "Danger Zone",  // PHASE 5: Removed  icon
                             style = MaterialTheme.typography.titleMedium,
                             fontFamily = Poppins,
                             fontWeight = FontWeight.Bold,
@@ -286,11 +335,10 @@ fun SettingsScreen(
                         CalorEaseButton(
                             text = "Delete Account",
                             onClick = viewModel::showDeleteConfirmDialog,
-                            backgroundColor = MaterialTheme.colorScheme.error
+                            gradientColors = listOf(androidx.compose.ui.graphics.Color(0xFFEF5350), androidx.compose.ui.graphics.Color(0xFFD32F2F), androidx.compose.ui.graphics.Color(0xFFB71C1C))
                         )
                     }
                 }
-            }
         }
     }
     
@@ -300,7 +348,7 @@ fun SettingsScreen(
             onDismissRequest = viewModel::hideEditWeightDialog,
             title = {
                 Text(
-                    text = "Update Weight",  // PART 3: Removed ⚠️
+                    text = "Update Weight",  // PART 3: Removed 
                     style = MaterialTheme.typography.bodyMedium,  // PART 3: Body size (bold)
                     fontFamily = Poppins,
                     fontWeight = FontWeight.Bold
@@ -326,7 +374,7 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = viewModel::requestWeightChange) {  // ✅ Show confirmation first
+                TextButton(onClick = viewModel::requestWeightChange) {  // Show confirmation first
                     Text("Continue", fontFamily = Poppins, color = DarkTurquoise)
                 }
             },
@@ -338,44 +386,24 @@ fun SettingsScreen(
         )
     }
     
-    // ✅ Edit Weight Confirmation Dialog
+    // Edit Weight Confirmation Dialog
     if (state.showWeightConfirmDialog) {
         AlertDialog(
             onDismissRequest = viewModel::hideWeightConfirmDialog,
-            title = {
-                Text(
-                    text = "⚠️ Confirm Weight Change",
-                    fontFamily = Poppins,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.error
-                )
-            },
+            title = null,
             text = {
                 Column {
                     Text(
                         text = "Are you sure you want to update your weight?",
                         fontFamily = Poppins,
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                     
                     Spacer(modifier = Modifier.height(12.dp))
                     
                     Text(
-                        text = "This will:",
-                        fontFamily = Poppins,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Text(
-                        text = "• Recalculate your BMR and TDEE",
-                        fontFamily = Poppins,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = "• Update your daily calorie target",
+                        text = "This will recalculate your BMR, TDEE, and daily calorie target.",
                         fontFamily = Poppins,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -388,12 +416,12 @@ fun SettingsScreen(
                         contentColor = DarkTurquoise
                     )
                 ) {
-                    Text("Yes, Update Weight", fontFamily = Poppins, fontWeight = FontWeight.Bold)
+                    Text("Yes", fontFamily = Poppins, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = viewModel::hideWeightConfirmDialog) {
-                    Text("Cancel", fontFamily = Poppins)
+                    Text("Cancel", fontFamily = Poppins, color = DarkTurquoise)
                 }
             }
         )
@@ -405,7 +433,7 @@ fun SettingsScreen(
             onDismissRequest = viewModel::hideChangeGoalDialog,
             title = {
                 Text(
-                    text = "Change Goal",  // PART 3: Removed ⚠️
+                    text = "Change Goal",  // PART 3: Removed 
                     style = MaterialTheme.typography.bodyMedium,  // PART 3: Body size (bold)
                     fontFamily = Poppins,
                     fontWeight = FontWeight.Bold
@@ -463,7 +491,7 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = viewModel::requestGoalChange) {  // ✅ CHANGED: Show second confirmation
+                TextButton(onClick = viewModel::requestGoalChange) {  // CHANGED: Show second confirmation
                     Text("Continue", fontFamily = Poppins, color = DarkTurquoise)
                 }
             },
@@ -475,86 +503,24 @@ fun SettingsScreen(
         )
     }
     
-    // Delete Confirmation Dialog
-    if (state.showDeleteConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = viewModel::hideDeleteConfirmDialog,
-            title = {
-                Text(
-                    text = "Delete Account",  // PART 3: Removed ⚠️
-                    style = MaterialTheme.typography.bodyMedium,  // PART 3: Body size (bold)
-                    fontFamily = Poppins,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface  // PART 3: Black
-                )
-            },
-            text = {
-                Text(
-                    text = "Are you sure you want to delete your account? This will permanently delete all your data and cannot be undone.",
-                    fontFamily = Poppins
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = viewModel::deleteAccount) {
-                    Text(
-                        "Delete",
-                        fontFamily = Poppins,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::hideDeleteConfirmDialog) {
-                    Text("Cancel", fontFamily = Poppins)
-                }
-            }
-        )
-    }
-    
-    // ✅ SECOND CONFIRMATION: Goal Change Final Warning
+
+    // SECOND CONFIRMATION: Goal Change Final Warning
     if (state.showGoalConfirmDialog) {
         AlertDialog(
             onDismissRequest = viewModel::hideGoalConfirmDialog,
             title = {
                 Text(
-                    text = "⚠️ Confirm Goal Change",
+                    text = "Confirm Goal Change",
                     fontFamily = Poppins,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.error
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             },
             text = {
                 Column {
                     Text(
-                        text = "⚠️ This action CANNOT be undone!",
-                        fontFamily = Poppins,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    Text(
-                        text = "Changing your goal will:",
-                        fontFamily = Poppins,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Text(
-                        text = "• Delete ALL your food log history",
-                        fontFamily = Poppins,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = "• Reset your progress stats to zero",
-                        fontFamily = Poppins,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = "• Recalculate your daily calorie target",
+                        text = "Changing your goal will delete all your food log history, reset progress, and recalculate your daily calorie target.",
                         fontFamily = Poppins,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -562,7 +528,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     
                     Text(
-                        text = "Are you absolutely sure you want to continue?",
+                        text = "Are you absolutely sure?",
                         fontFamily = Poppins,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
@@ -573,15 +539,15 @@ fun SettingsScreen(
                 TextButton(
                     onClick = viewModel::saveNewGoal,
                     colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
+                        contentColor = DarkTurquoise
                     )
                 ) {
-                    Text("Yes, Delete Progress", fontFamily = Poppins, fontWeight = FontWeight.Bold)
+                    Text("Yes", fontFamily = Poppins, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = viewModel::hideGoalConfirmDialog) {
-                    Text("Cancel", fontFamily = Poppins)
+                    Text("Cancel", fontFamily = Poppins, color = DarkTurquoise)
                 }
             }
         )
@@ -609,7 +575,7 @@ fun SettingsScreen(
                 Button(
                     onClick = viewModel::logout,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.onSurface  // PART 3: Black button
+                        containerColor = DeepTeal  // PART 3: Black button
                     )
                 ) {
                     Text(
@@ -744,7 +710,7 @@ fun SettingsScreen(
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = DarkTurquoise
+                        containerColor = DeepTeal
                     )
                 ) {
                     Text("Switch", fontFamily = Poppins)

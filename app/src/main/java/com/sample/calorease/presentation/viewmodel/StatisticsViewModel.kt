@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sample.calorease.data.session.SessionManager
 import com.sample.calorease.domain.repository.CalorieRepository
+import com.sample.calorease.domain.repository.LegacyCalorieRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,79 +21,86 @@ data class ChartData(
 
 data class StatisticsState(
     val chartData: List<ChartData> = emptyList(),
-    val isLoading: Boolean = true
+    val goalCalories: Float        = 2000f,  // Daily calorie goal from user profile
+    val currentWeight: Float       = 0f,     // Current weight (kg) from user profile
+    val targetWeight: Float        = 0f,     // Goal weight (kg) from user profile
+    val todayCalories: Float       = 0f,     // Calories logged today
+    val isLoading: Boolean         = true
 )
 
 @HiltViewModel
 class StatisticsViewModel @Inject constructor(
-    private val repository: CalorieRepository,  // ✅ Use real repository
-    private val sessionManager: SessionManager   // ✅ Get userId
+    private val repository: CalorieRepository,
+    private val legacyRepository: LegacyCalorieRepository,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
-    
+
     private val _statisticsState = MutableStateFlow(StatisticsState())
     val statisticsState: StateFlow<StatisticsState> = _statisticsState.asStateFlow()
-    
+
     init {
         loadWeeklyData()
     }
-    
+
     private fun loadWeeklyData() {
         viewModelScope.launch {
             _statisticsState.value = _statisticsState.value.copy(isLoading = true)
-            
+
             try {
-                // Get userId from session
                 val userId = sessionManager.getUserId()
                 if (userId == null) {
-                    android.util.Log.e("StatisticsViewModel", "❌ No userId in session")
                     _statisticsState.value = _statisticsState.value.copy(
                         chartData = emptyList(),
                         isLoading = false
                     )
                     return@launch
                 }
-                
-                android.util.Log.d("StatisticsViewModel", "📊 Loading weekly data for userId=$userId")
-                
-                // Get last 7 days as timestamps (oldest to newest)
+
+                // ── Weekly calorie chart ─────────────────────────────────────
                 val last7Days = getLastNDaysTimestamps(7)
-                
-                android.util.Log.d("StatisticsViewModel", "📅 Date range: ${formatTimestamp(last7Days.first())} to ${formatTimestamp(last7Days.last())}")
-                
-                // ✅ CRITICAL FIX: Use date range query to get ALL 7 days of data
-                // Previous bug: getDailyEntries(userId, date) only gets ONE specific date
+
                 val allEntriesResult = repository.getDailyEntriesByDateRange(
-                    userId = userId,
+                    userId    = userId,
                     startDate = last7Days.first(),
-                    endDate = last7Days.last()
+                    endDate   = last7Days.last()
                 )
                 val allEntries = allEntriesResult.getOrNull() ?: emptyList()
-                
-                android.util.Log.d("StatisticsViewModel", "📦 Total entries fetched: ${allEntries.size}")
-                
-                // Group by date, sum calories for each day
+
                 val chartData = last7Days.map { timestamp ->
-                    // Filter entries for this specific day
-                    val dayEntries = allEntries.filter { it.date == timestamp }
+                    val dayEntries    = allEntries.filter { it.date == timestamp }
                     val totalCalories = dayEntries.sumOf { it.calories }
-                    
-                    val dateStr = formatTimestamp(timestamp)
-                    android.util.Log.d("StatisticsViewModel", "  📅 $dateStr: ${dayEntries.size} entries, $totalCalories cal")
-                    
                     ChartData(
-                        date = dateStr,
+                        date     = formatTimestamp(timestamp),
                         calories = totalCalories.toFloat()
                     )
                 }
-                
+
+                // Calories logged today
+                val todayStart = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0);      set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                val todayCalories = allEntries
+                    .filter { it.date == todayStart }
+                    .sumOf { it.calories }
+                    .toFloat()
+
+                // ── User profile — goal calories, current & target weight ────
+                val userStats = try {
+                    legacyRepository.getUserStats(userId)
+                } catch (e: Exception) { null }
+
                 _statisticsState.value = _statisticsState.value.copy(
-                    chartData = chartData,
-                    isLoading = false
+                    chartData      = chartData,
+                    goalCalories   = userStats?.goalCalories?.toFloat() ?: 2000f,
+                    currentWeight  = userStats?.weightKg?.toFloat()     ?: 0f,
+                    targetWeight   = userStats?.targetWeightKg?.toFloat() ?: 0f,
+                    todayCalories  = todayCalories,
+                    isLoading      = false
                 )
-                
-                android.util.Log.d("StatisticsViewModel", "✅ Weekly data loaded: ${chartData.size} days")
+
             } catch (e: Exception) {
-                android.util.Log.e("StatisticsViewModel", "❌ Error loading weekly data", e)
+                android.util.Log.e("StatisticsViewModel", "Error loading data", e)
                 _statisticsState.value = _statisticsState.value.copy(
                     chartData = emptyList(),
                     isLoading = false
@@ -100,20 +108,14 @@ class StatisticsViewModel @Inject constructor(
             }
         }
     }
-    
+
     fun refreshData() {
-        android.util.Log.d("StatisticsViewModel", "🔄 Refreshing statistics data...")
         loadWeeklyData()
     }
-    
-    /**
-     * Get last N days as timestamps (start of day, midnight)
-     * Returns oldest to newest
-     */
+
     private fun getLastNDaysTimestamps(days: Int): List<Long> {
-        val calendar = Calendar.getInstance()
+        val calendar   = Calendar.getInstance()
         val timestamps = mutableListOf<Long>()
-        
         for (daysAgo in (days - 1) downTo 0) {
             calendar.timeInMillis = System.currentTimeMillis()
             calendar.set(Calendar.HOUR_OF_DAY, 0)
@@ -123,15 +125,9 @@ class StatisticsViewModel @Inject constructor(
             calendar.add(Calendar.DAY_OF_YEAR, -daysAgo)
             timestamps.add(calendar.timeInMillis)
         }
-        
         return timestamps
     }
-    
-    /**
-     * Format timestamp to "yyyy-MM-dd" for display
-     */
-    private fun formatTimestamp(timestamp: Long): String {
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        return sdf.format(Date(timestamp))
-    }
+
+    private fun formatTimestamp(timestamp: Long): String =
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(timestamp))
 }

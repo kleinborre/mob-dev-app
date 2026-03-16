@@ -33,7 +33,7 @@ fun OnboardingNameScreen(
     val state by viewModel.onboardingState.collectAsState()
     var showExitDialog by remember { mutableStateOf(false) }
     
-    // ✅ Load saved progress when screen opens
+    // Load saved progress when screen opens
     LaunchedEffect(Unit) {
         viewModel.loadProgress()
     }
@@ -129,7 +129,7 @@ fun OnboardingNameScreen(
             CalorEaseButton(
                 text = "Next",
                 onClick = {
-                    // ✅ UX FIX: Store result to prevent recomposition delay
+                    // UX FIX: Store result to prevent recomposition delay
                     val isValid = viewModel.validateName()
                     if (isValid) {
                         viewModel.saveStepOne()
@@ -143,7 +143,7 @@ fun OnboardingNameScreen(
         Spacer(modifier = Modifier.height(32.dp))
     }
     
-    // Exit Confirmation Dialog
+    // Exit Confirmation Dialog — saves partial progress, does NOT clear session
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
@@ -156,30 +156,31 @@ fun OnboardingNameScreen(
             },
             text = {
                 Text(
-                    text = "All unsaved information will be lost. Are you sure you want to exit?",
+                    text = "Your progress will be saved. You can continue anytime after logging in.",
                     fontFamily = Poppins
                 )
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // 🔴 CRITICAL SECURITY FIX: Clear ENTIRE back stack
-                        // Previous code kept Getting Started in stack, allowing swipe-back without login
                         coroutineScope.launch {
-                            sessionManager.clearSession()
+                            // CRITICAL: Save partial progress WITHOUT clearing session.
+                            // clearSession() was wiping USER_ID, which caused all future
+                            // onboarding saves to fail silently (userId=null → early return).
+                            viewModel.savePartialProgress()
                             showExitDialog = false
                             navController.navigate("login") {
-                                popUpTo(0) { inclusive = true }  // Clear everything - prevent swipe back
+                                popUpTo(0) { inclusive = true }
                             }
                         }
                     }
                 ) {
-                    Text("Yes, Exit")
+                    Text("Save & Exit")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showExitDialog = false }) {
-                    Text("Cancel")
+                    Text("Keep Going")
                 }
             }
         )

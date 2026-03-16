@@ -39,9 +39,9 @@ fun OnboardingGoalsScreen(
     val state by viewModel.onboardingState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     
-    // ✅ FIX STEP 3: Load saved state when screen opens (including back navigation)
+    // FIX STEP 3: Load saved state when screen opens (including back navigation)
     LaunchedEffect(Unit) {
-        android.util.Log.d("OnboardingGoals", "🔄 Loading saved progress...")
+        android.util.Log.d("OnboardingGoals", "Loading saved progress...")
         viewModel.loadProgress()
     }
     
@@ -126,10 +126,10 @@ fun OnboardingGoalsScreen(
             CalorEaseButton(
                 text = "Next",
                 onClick = {
-                    // ✅ UX FIX: Store result to prevent recomposition delay
+                    // UX FIX: Store result to prevent recomposition delay
                     val isValid = viewModel.validateGoals()
                     if (isValid) {
-                        // ✅ PHASE J FIX: Await saveStepThree before navigation
+                        // PHASE J FIX: Await saveStepThree before navigation
                         coroutineScope.launch {
                             viewModel.saveStepThree()
                             viewModel.calculateResults()

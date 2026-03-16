@@ -10,11 +10,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -22,10 +25,26 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.sample.calorease.data.local.entity.DailyEntryEntity
 import com.sample.calorease.presentation.components.BottomNavigationBar
+import com.sample.calorease.presentation.components.CalorEaseCard
+import com.sample.calorease.presentation.components.CalorEaseSnackbarHost
 import com.sample.calorease.presentation.navigation.Screen
+import com.sample.calorease.presentation.theme.AestheticWhite
+import com.sample.calorease.presentation.theme.DeepTeal
 import com.sample.calorease.presentation.theme.DarkTurquoise
+import com.sample.calorease.presentation.theme.OffWhite
+import com.sample.calorease.presentation.theme.PaperWhite
 import com.sample.calorease.presentation.theme.Poppins
+import com.sample.calorease.presentation.theme.SubtleGray
+import com.sample.calorease.presentation.ui.UiEvent
+import com.sample.calorease.presentation.util.SoundPlayer
+import com.sample.calorease.presentation.components.Render
+import com.sample.calorease.presentation.components.rememberStatusDialog
 import com.sample.calorease.presentation.viewmodel.DashboardViewModel
+
+// Gradient brush used for the screen background
+private val dashboardGradient = Brush.verticalGradient(
+    colors = listOf(AestheticWhite, PaperWhite, OffWhite, SubtleGray)
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,37 +53,61 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val state by viewModel.dashboardState.collectAsState()
-    // BUGFIX Issue 8: Dialog state moved to ViewModel (other dialogs stay local)
     var showDeleteDialog by remember { mutableStateOf<DailyEntryEntity?>(null) }
     var showEditDialog by remember { mutableStateOf<DailyEntryEntity?>(null) }
-    
-    // PHASE 1: Mode now saved in AuthViewModel on login
-    
-    // ✅ Refresh on composition (works with state restoration disabled)
-    // Only runs once per composition, no flickering
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val context           = LocalContext.current
+    val soundPlayer       = remember { SoundPlayer(context) }
+    val statusDialog      = rememberStatusDialog()
+
+    // Collect one-shot UI events and show StatusDialog (success auto-dismisses, error auto-dismisses)
     LaunchedEffect(Unit) {
-        android.util.Log.d("DashboardScreen", "🔄 Screen composed - refreshing...")
         viewModel.refreshData()
+        viewModel.uiEvent.collect { event ->
+            when (event) {
+                is UiEvent.ShowLoading  -> statusDialog.showLoading(event.message)
+                is UiEvent.ShowSuccess  -> {
+                    soundPlayer.playSuccess()
+                    statusDialog.showSuccess(event.message)
+                }
+                is UiEvent.ShowError    -> {
+                    soundPlayer.playError()
+                    statusDialog.showError(event.message)
+                }
+                is UiEvent.DismissDialog -> statusDialog.dismiss()
+                else -> Unit
+            }
+        }
     }
-    
+
+    DisposableEffect(Unit) {
+        onDispose { soundPlayer.release() }
+    }
+
+    // Render the status dialog above the scaffold
+    statusDialog.Render()
+
     Scaffold(
-        topBar = {
-            // No TopAppBar - using custom header in content for better alignment
-        },
+        topBar    = {},
+        containerColor = Color.Transparent,
+        snackbarHost = { CalorEaseSnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { viewModel.showAddDialog() },  // BUGFIX Issue 8: Use ViewModel
-                containerColor = DarkTurquoise,
-                contentColor = Color.White
+                onClick        = { viewModel.showAddDialog() },
+                containerColor = DeepTeal,
+                contentColor   = Color.White
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Add Food"
-                )
+                Icon(imageVector = Icons.Default.Add, contentDescription = "Add Food")
             }
         },
         bottomBar = { BottomNavigationBar(navController = navController) }
     ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(dashboardGradient)
+        ) {
         if (state.isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -73,59 +116,62 @@ fun DashboardScreen(
                 CircularProgressIndicator(color = DarkTurquoise)
             }
         } else {
+            PullToRefreshBox(
+                isRefreshing = state.isRefreshing,
+                onRefresh    = { viewModel.refreshDashboard() },
+                modifier     = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding      = PaddingValues(top = 48.dp, bottom = 88.dp)
             ) {
-                // ✅ Phase E: Home header matching Settings page
-                item { Spacer(modifier = Modifier.height(16.dp)) }
-                
+                // Welcome header — name only, no redundant 'Home' title
                 item {
-                    Text(
-                        text = "Home",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontFamily = Poppins,
-                        fontWeight = FontWeight.Bold,
-                        color = DarkTurquoise
-                    )
-                }
-                
-                item { Spacer(modifier = Modifier.height(4.dp)) }  // PART 4: Minimal gap (was 12dp)
-                
-                // ✅ Welcome Header with capitalized nickname
-                item {
-                    // ✅ Capitalize each word in nickname
                     val displayName = state.nickname.takeIf { it.isNotBlank() }?.let { nickname ->
                         nickname.split(" ").joinToString(" ") { word ->
-                            word.replaceFirstChar { char -> 
+                            word.replaceFirstChar { char ->
                                 if (char.isLowerCase()) char.titlecase() else char.toString()
                             }
                         }
                     } ?: "User"
-                    
+
                     Column {
                         Text(
-                            text = "Welcome back,",
-                            style = MaterialTheme.typography.bodyLarge,
+                            text       = "Good day,",
+                            style      = MaterialTheme.typography.bodyMedium,
                             fontFamily = Poppins,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            color      = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                         )
-                        Text(
-                            text = displayName,
-                            style = MaterialTheme.typography.titleLarge,  // PHASE 2: Same size as "Home"
-                            fontFamily = Poppins,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface  // FIX-2a: Black instead of DarkTurquoise
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text       = displayName,
+                                style      = MaterialTheme.typography.headlineSmall,
+                                fontFamily = Poppins,
+                                fontWeight = FontWeight.Bold,
+                                color      = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            
+                            // Sprint 4 Phase 2: SyncStatus UI Indicator
+                            val isOnline = com.sample.calorease.presentation.util.NetworkUtils.isNetworkAvailable(context)
+                            Icon(
+                                imageVector = if (isOnline) Icons.Default.CloudSync else Icons.Default.CloudOff,
+                                contentDescription = if (isOnline) "Synced" else "Offline",
+                                tint = if (isOnline) DarkTurquoise else Color.Gray,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                 }
-                
+
                 // Hero Summary Card with Circular Progress and dynamic background
                 item {
-                    // ✅ Dynamic background color based on calorie consumption
+                    // Dynamic background color based on calorie consumption
                     val cardBackgroundColor = if (state.consumedCalories > state.goalCalories) {
                         Color(0xFFE57373) // Red when over goal (better contrast than pink)
                     } else {
@@ -136,7 +182,7 @@ fun DashboardScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = cardBackgroundColor  // ✅ Dynamic color
+                            containerColor = cardBackgroundColor  // Dynamic color
                         )
                     ) {
                         Column(
@@ -193,13 +239,13 @@ fun DashboardScreen(
                                 (state.consumedCalories.toFloat() / state.goalCalories * 100).toInt()
                             } else 0
                             
-                            val (message, emoji) = when {
-                                state.consumedCalories > state.goalCalories -> "Over your daily target" to "⚠️"
-                                percentage < 25 -> "Let's get started!" to "💪"
-                                percentage < 75 -> "You're doing great!" to "🎯"
-                                percentage < 95 -> "Almost there!" to "🔥"
-                                percentage <= 100 -> "Perfect target!" to "✅"
-                                else -> "Over target" to "⚠️"
+                            val message = when {
+                                state.consumedCalories > state.goalCalories -> "Over your daily target"
+                                percentage < 25 -> "Let's get started!"
+                                percentage < 75 -> "You're doing great!"
+                                percentage < 95 -> "Almost there!"
+                                percentage <= 100 -> "Perfect target!"
+                                else -> "Over target"
                             }
                             
                             val messageColor = if (state.consumedCalories > state.goalCalories) {
@@ -209,7 +255,7 @@ fun DashboardScreen(
                             }
                             
                             Text(
-                                text = "$emoji $message",
+                                text = message,
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontFamily = Poppins,
                                 fontWeight = FontWeight.SemiBold,
@@ -282,11 +328,8 @@ fun DashboardScreen(
                 // Food Entry List
                 if (state.foodEntries.isEmpty()) {
                     item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                            )
+                        CalorEaseCard(
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(
                                 modifier = Modifier
@@ -327,9 +370,11 @@ fun DashboardScreen(
                 }
                 
                 item { Spacer(modifier = Modifier.height(80.dp)) } // FAB clearance
-            }
-        }
-    }
+            }   // end LazyColumn
+            }   // end PullToRefreshBox
+        }   // end else
+        }   // end Box (gradient background)
+    }   // end Scaffold content
     
     // BUGFIX Issue 8: Add Calorie Sheet with persistent state from ViewModel
     if (state.showAddDialog) {
@@ -449,7 +494,7 @@ fun DashboardScreen(
             }
         )
     }
-}
+} // end DashboardScreen
 
 @Composable
 fun FoodEntryItem(
@@ -457,11 +502,8 @@ fun FoodEntryItem(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+    CalorEaseCard(
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier

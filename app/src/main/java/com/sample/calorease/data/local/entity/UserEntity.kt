@@ -15,10 +15,16 @@ import androidx.room.PrimaryKey
 data class UserEntity(
     @PrimaryKey(autoGenerate = true)
     val userId: Int = 0,
-    
+
     // Authentication
     val email: String,
     val password: String, // Plain text for local prototype
+
+    // Google Sign-In link — null if user never signed in with Google
+    val googleId: String? = null,
+    
+    // SMTP Phase 3
+    val isEmailVerified: Boolean = false,
     
     // Profile
     val nickname: String,
@@ -28,7 +34,7 @@ data class UserEntity(
     // Admin Features (Phase 1)
     val accountStatus: String = "active",  // "active" or "deactivated"
     val adminAccess: Boolean = false,       // true = admin, false = regular user
-    val isSuperAdmin: Boolean = false, // ✅ Phase B: Super admin (cannot be demoted)
+    val isSuperAdmin: Boolean = false, // Phase B: Super admin (cannot be demoted)
     val accountCreated: Long = System.currentTimeMillis(), // Timestamp when account created
     
     // Physical Stats
@@ -44,5 +50,8 @@ data class UserEntity(
     
     // Calculated Metrics
     val bmr: Int, // Basal Metabolic Rate (kcal)
-    val tdee: Int // Total Daily Energy Expenditure (kcal)
+    val tdee: Int, // Total Daily Energy Expenditure (kcal)
+    
+    // Remote Sync (Sprint 4 Phase 1)
+    val lastUpdated: Long = System.currentTimeMillis() // Epoch timestamp for Last-Write-Wins sync
 )

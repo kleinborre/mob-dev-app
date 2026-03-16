@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -20,12 +21,22 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.sample.calorease.data.local.entity.DailyEntryEntity
 import com.sample.calorease.presentation.components.BottomNavigationBar
+import com.sample.calorease.presentation.components.CalorEaseCard
 import com.sample.calorease.presentation.navigation.Screen
+import com.sample.calorease.presentation.theme.AestheticWhite
 import com.sample.calorease.presentation.theme.DarkTurquoise
+import com.sample.calorease.presentation.theme.OffWhite
+import com.sample.calorease.presentation.theme.PaperWhite
 import com.sample.calorease.presentation.theme.Poppins
+import com.sample.calorease.presentation.theme.SubtleGray
+import com.sample.calorease.presentation.theme.TextSecondary
 import com.sample.calorease.presentation.viewmodel.DashboardViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+
+private val foodLogsGradient = Brush.verticalGradient(
+    colors = listOf(AestheticWhite, PaperWhite, OffWhite, SubtleGray)
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,13 +98,19 @@ fun FoodLogsScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+        colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
                 )
             )
         },
-        bottomBar = { BottomNavigationBar(navController = navController) }
+        bottomBar      = { BottomNavigationBar(navController = navController) },
+        containerColor = Color.Transparent
     ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(foodLogsGradient)
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -162,16 +179,16 @@ fun FoodLogsScreen(
                 DatePicker(state = datePickerState)
             }
         }
-    }
+        } // end Box (gradient)
+    }   // end Scaffold content
 }
 
 @Composable
 fun FoodHistoryItem(entry: DailyEntryEntity) {
     val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.getDefault()) }
     
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+    CalorEaseCard(
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier

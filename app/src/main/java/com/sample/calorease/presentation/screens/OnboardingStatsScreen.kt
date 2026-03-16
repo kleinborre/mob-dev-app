@@ -24,6 +24,7 @@ import com.sample.calorease.presentation.components.CalorEaseOutlinedButton
 import com.sample.calorease.presentation.components.CalorEaseProgressBar
 import com.sample.calorease.presentation.components.CalorEaseTextField
 import com.sample.calorease.presentation.navigation.Screen
+import com.sample.calorease.presentation.theme.DeepTeal
 import com.sample.calorease.presentation.theme.DarkTurquoise
 import com.sample.calorease.presentation.theme.Poppins
 import com.sample.calorease.presentation.viewmodel.OnboardingViewModel
@@ -35,7 +36,7 @@ fun OnboardingStatsScreen(
 ) {
     val state by viewModel.onboardingState.collectAsState()
     
-    // ✅ UX FIX: Track focus to clear "0" placeholder
+    // UX FIX: Track focus to clear "0" placeholder
     var heightHasFocus by remember { mutableStateOf(false) }
     var weightHasFocus by remember { mutableStateOf(false) }
     
@@ -43,7 +44,7 @@ fun OnboardingStatsScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp)
-            .verticalScroll(rememberScrollState()),  // ✅ Add scroll to fix visibility
+            .verticalScroll(rememberScrollState()),  // Add scroll to fix visibility
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(40.dp))
@@ -175,7 +176,7 @@ fun OnboardingStatsScreen(
             CalorEaseButton(
                 text = "Next",
                 onClick = {
-                    // ✅ UX FIX: Simplified - no recomposition delay
+                    // UX FIX: Simplified - no recomposition delay
                     val isValid = viewModel.validateStats()
                     if (isValid) {
                         viewModel.saveStepTwo()
@@ -409,7 +410,7 @@ fun BirthdaySelector(
                     )
                 },
                 colors = DatePickerDefaults.colors(
-                    selectedDayContainerColor = DarkTurquoise
+                    selectedDayContainerColor = DeepTeal
                 )
             )
         }

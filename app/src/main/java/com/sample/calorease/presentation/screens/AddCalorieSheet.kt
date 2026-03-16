@@ -15,7 +15,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.sample.calorease.presentation.components.CalorEaseButton
 import com.sample.calorease.presentation.components.CalorEaseTextField
+import com.sample.calorease.presentation.theme.DeepTeal
 import com.sample.calorease.presentation.theme.DarkTurquoise
 import com.sample.calorease.presentation.theme.Poppins
 
@@ -139,25 +141,11 @@ fun AddCalorieSheet(
             Spacer(modifier = Modifier.height(32.dp))
             
             // Add Log Button
-            Button(
+            CalorEaseButton(
+                text    = "Add Log",
                 onClick = { showConfirmation = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                enabled = isFormValid,
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = DarkTurquoise,
-                    disabledContainerColor = DarkTurquoise.copy(alpha = 0.5f)
-                )
-            ) {
-                Text(
-                    text = "Add Log",
-                    fontFamily = Poppins,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
+                enabled = isFormValid
+            )
         }
     }
     

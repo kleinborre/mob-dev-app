@@ -31,7 +31,7 @@ class StatsViewModel @Inject constructor(
     private val calorieRepository: CalorieRepository,
     private val userRepository: UserRepository,
     private val sessionManager: SessionManager,
-    private val legacyRepository: com.sample.calorease.domain.repository.LegacyCalorieRepository  // ✅ PHASE 7
+    private val legacyRepository: com.sample.calorease.domain.repository.LegacyCalorieRepository
 ) : ViewModel() {
     
     private val _statsState = MutableStateFlow(StatsState())
@@ -48,12 +48,11 @@ class StatsViewModel @Inject constructor(
             try {
                 val userId = sessionManager.getUserId() ?: return@launch
                 
-                // ✅ PHASE 7 FIX: Get user's daily goal from user_stats (not users table)
-                // This matches DashboardViewModel logic
+                // Get user's daily goal from user_stats (not users table)
                 val userStatsResult = legacyRepository.getUserStats(userId)
                 val dailyGoal = userStatsResult?.goalCalories?.toInt() ?: 2000
                 
-                android.util.Log.d("StatsViewModel", "📊 Loading stats for userId=$userId, dailyGoal=$dailyGoal")
+                android.util.Log.d("StatsViewModel", "Loading stats for userId=$userId, dailyGoal=$dailyGoal")
                 
                 // Get last 7 days of data
                 val weekData = mutableListOf<DayCalorieData>()

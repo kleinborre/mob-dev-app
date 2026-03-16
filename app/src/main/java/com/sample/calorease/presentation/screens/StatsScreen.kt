@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -25,9 +26,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.sample.calorease.presentation.components.BottomNavigationBar
 import com.sample.calorease.presentation.components.CalorEaseCard
+import com.sample.calorease.presentation.theme.AestheticWhite
 import com.sample.calorease.presentation.theme.DarkTurquoise
+import com.sample.calorease.presentation.theme.OffWhite
+import com.sample.calorease.presentation.theme.PaperWhite
 import com.sample.calorease.presentation.theme.Poppins
+import com.sample.calorease.presentation.theme.SubtleGray
 import com.sample.calorease.presentation.viewmodel.StatsViewModel
+
+private val statsGradient = Brush.verticalGradient(
+    colors = listOf(AestheticWhite, PaperWhite, OffWhite, SubtleGray)
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,8 +47,14 @@ fun StatsScreen(
     val state by viewModel.statsState.collectAsState()
     
     Scaffold(
-        bottomBar = { BottomNavigationBar(navController = navController) }
+        bottomBar      = { BottomNavigationBar(navController = navController) },
+        containerColor = Color.Transparent
     ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(statsGradient)
+        ) {
         if (state.isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -53,9 +68,9 @@ fun StatsScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
                     .padding(24.dp)
-                    .verticalScroll(rememberScrollState())  // ✅ Phase H: Landscape support
+                    .verticalScroll(rememberScrollState())  // Phase H: Landscape support
             ) {
-                // ✅ Phase E: Header matching Settings page
+                // Phase E: Header matching Settings page
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Text(
@@ -88,15 +103,11 @@ fun StatsScreen(
                 
                 Spacer(modifier = Modifier.height(32.dp))
                 
-                // Chart Card
-                Card(
+                // Chart Card — glassmorphism
+                CalorEaseCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(350.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                    ),
-                    shape = RoundedCornerShape(24.dp)
+                        .height(350.dp)
                 ) {
                     CalorieBarChart(
                         data = state.weekData.map { it.dayLabel to it.calories },
@@ -133,22 +144,23 @@ fun StatsScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     StatCard(
-                        label = "Average Daily Intake",  // ✅ Phase F: More descriptive
-                        value = "${state.weekData.map { it.calories }.average().toInt()} kcal",  // ✅ Phase F: Add "kcal" unit
-                        description = "Based on last 7 days",  // ✅ Phase F: Add context
+                        label = "Average Daily Intake",  // Phase F: More descriptive
+                        value = "${state.weekData.map { it.calories }.average().toInt()} kcal",  // Phase F: Add "kcal" unit
+                        description = "Based on last 7 days",  // Phase F: Add context
                         modifier = Modifier.weight(1f)
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     StatCard(
                         label = "Daily Goal",
-                        value = "${state.dailyGoal} kcal",  // ✅ Phase F: Add "kcal" unit
-                        description = "Your target intake",  // ✅ Phase F: Add context
+                        value = "${state.dailyGoal} kcal",  // Phase F: Add "kcal" unit
+                        description = "Your target intake",  // Phase F: Add context
                         modifier = Modifier.weight(1f)
                     )
                 }
             }
-        }
-    }
+        }   // end else
+        }   // end Box (gradient background)
+    }   // end Scaffold
 }
 
 @Composable
@@ -186,7 +198,7 @@ fun CalorieBarChart(
                 
                 val yScale = chartHeight / maxValue
                 
-                // ✅ Phase F: Draw horizontal grid lines for better readability
+                // Phase F: Draw horizontal grid lines for better readability
                 val gridLineCount = 4
                 val gridColor = Color.Gray.copy(alpha = 0.2f)
                 for (i in 0..gridLineCount) {
@@ -226,7 +238,7 @@ fun CalorieBarChart(
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(8f, 8f)
                     )
                     
-                    // ✅ Phase F: Draw value label on top of bar
+                    // Phase F: Draw value label on top of bar
                     if (value > 0) {
                         drawContext.canvas.nativeCanvas.apply {
                             val paint = android.graphics.Paint().apply {
