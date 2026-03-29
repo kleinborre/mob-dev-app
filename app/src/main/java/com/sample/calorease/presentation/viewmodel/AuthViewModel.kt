@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import com.google.android.gms.tasks.Tasks
 import com.sample.calorease.data.local.entity.UserEntity
 import com.sample.calorease.data.model.UserStats
-import com.sample.calorease.data.repository.LegacyCalorieRepository
 import com.sample.calorease.data.session.SessionManager
 import com.sample.calorease.domain.model.ActivityLevel
 import com.sample.calorease.domain.model.Gender

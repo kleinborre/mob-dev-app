@@ -21,4 +21,7 @@ sealed class Screen(val route: String) {
 
     // Phase 4: Sprint 3.1
     data object UpdateCredentials : Screen("update_credentials")
+
+    // Food Logs history screen
+    data object FoodLogs : Screen("food_logs")
 }

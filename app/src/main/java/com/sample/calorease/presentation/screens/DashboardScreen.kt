@@ -306,7 +306,7 @@ fun DashboardScreen(
                         
                         // View History Button
                         TextButton(
-                            onClick = { navController.navigate("food_logs") }
+                            onClick = { navController.navigate(Screen.FoodLogs.route) }
                         ) {
                             Text(
                                 text = "View History",

@@ -15,3 +15,10 @@
 local.properties
 .idea/
 .vscode/
+
+# ── Sensitive credentials — never commit these ──────────────────────────────
+# Firebase configuration (contains project ID, API keys, app IDs)
+app/google-services.json
+
+# Abstract Email Validation API key
+app/src/main/java/com/sample/calorease/data/remote/api/AbstractEmailApi.kt
