@@ -6,24 +6,19 @@
 
     Adaptive Icon sizing:
       Canvas    = 108 x 108 dp
-      Safe zone = 66 x 66 dp (centered at 54,54 → from 21,21 to 87,87)
-      Max outer radius from center = 33 dp
+      Safe zone = 66 x 66 dp (center 54,54 → bounds 21–87)
+      Target    = ~65% of safe zone radius = ~21dp outer edge from center
 
-    Arc math (all values in viewport units, center at 54,54):
-      Arc radius (stroke center) = 25 dp  → outer edge = 25+6 = 31 dp ✓ (within 33 dp safe zone)
-      Stroke width               = 12 dp
-      Opening angle              = ±50° from the right horizontal
+    Arc math (center at 54,54):
+      Arc radius (stroke center) = 18 dp
+      Stroke width               =  9 dp
+      Outer edge from center     = 18 + 4.5 = 22.5 dp  ✓ (well within 33dp limit)
+      Opening angle              = ±50° from right horizontal
 
-      Start (bottom of C gap):
-        x = 54 + 25×cos(50°) = 54 + 16.07 = 70
-        y = 54 + 25×sin(50°) = 54 + 19.15 = 73
+      Start (bottom of C gap):  x = 54 + 18×cos(50°) = 66,  y = 54 + 18×sin(50°) = 68
+      End   (top of C gap):     x = 66,                      y = 54 − 18×sin(50°) = 40
 
-      End (top of C gap):
-        x = 70
-        y = 54 − 25×sin(50°) = 54 − 19.15 = 35
-
-      Arc: clockwise (sweep-flag=1), large arc (large-arc-flag=1)
-      → sweeps 260° through bottom → left → top
+      Clockwise sweep (sweep-flag=1), large arc (large-arc-flag=1) = 260° arc
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -32,10 +27,10 @@
     android:viewportHeight="108">
 
     <path
-        android:pathData="M 70,73 A 25,25,0,1,1,70,35"
+        android:pathData="M 66,68 A 18,18,0,1,1,66,40"
         android:fillColor="#00000000"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="12"
+        android:strokeWidth="9"
         android:strokeLineCap="round" />
 
 </vector>
