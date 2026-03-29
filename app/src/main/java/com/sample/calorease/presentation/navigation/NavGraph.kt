@@ -155,7 +155,7 @@ fun NavGraph(
         ) { com.sample.calorease.presentation.screens.UpdateCredentialsScreen(navController = navController) }
 
         // ── Food Logs ─────────────────────────────────────────────
-        composable("food_logs") {
+        composable(Screen.FoodLogs.route) {
             FoodLogsScreen(navController = navController)
         }
     }
