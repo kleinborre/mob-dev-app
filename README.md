@@ -41,6 +41,17 @@ The application features dual-mode functionality with separate dashboards for re
 
 ---
 
+## 📋 Terminal Assessment Documents
+
+| Document | Link |
+| :--- | :--- |
+| **Signed APK Download** | [Download app-release.apk](https://drive.google.com/file/d/1aNlrypgEHLUT30NjEAwwOV-YNm7z8_OO/view?usp=sharing) |
+| **Sprint Planning & Backlog Document** | [Open in Google Sheets](https://docs.google.com/spreadsheets/d/1rsX9MkCZv9XjtN21c9f7cAGweILjdz0VW_OvpiB3MKo/edit?usp=sharing) |
+| **Test Case Document with Results** | [Open in Google Sheets](https://docs.google.com/spreadsheets/d/1wJDk08y_VGF7c13kJngVh--xdEMv1-CEwiiKP-nNH_w/edit?usp=sharing) |
+| **Simplified User Documentation** | [Open in Google Docs](https://docs.google.com/document/d/1vdLnB96HGhw-DEmwTSUCjb1pdyazb6I9Ejmhq1F7Eds/edit?usp=sharing) |
+
+---
+
 ## 🚀 Features Implemented
 
 ### Sprint 1: User Input Handling & Visual Architecture
